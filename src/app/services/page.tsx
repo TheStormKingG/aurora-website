@@ -28,7 +28,7 @@ export default function ServicesPage() {
       <section className="bg-navy">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
           <ul className="grid gap-6 md:grid-cols-2">
-            {services.map((s, i) => (
+            {services.map((s) => (
               <li key={s.slug}>
                 <Card glow className="h-full">
                   <div className="flex h-full flex-col">
