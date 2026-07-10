@@ -9,58 +9,65 @@
  *   links, active states, focus rings).
  * - Violet and magenta are decorative — gradients and glows only, never
  *   for text or interactive elements.
- * - On light backgrounds links use --color-link-on-light (#0E8FAE);
+ * - On light backgrounds links use --aurora-link-on-light (#0E8FAE);
  *   raw cyan on white fails WCAG contrast.
+ *
+ * Raw tokens are namespaced --aurora-*; Tailwind theme keys map onto
+ * them in src/app/globals.css (@theme inline).
  */
 
 :root {
   /* ── Palette (PDR §4.2) ─────────────────────────────────────────── */
-  --color-navy: #060b22; /* Deep Space Navy — primary background        */
-  --color-indigo: #141b3f; /* Midnight Indigo — cards/panels on dark    */
-  --color-cyan: #2bd9f5; /* Aurora Cyan — ONLY CTA/link/focus colour    */
-  --color-blue: #3fa9f5; /* Electric Blue — hover states, gradients     */
-  --color-violet: #7b3ff2; /* Aurora Violet — decorative gradients only */
-  --color-magenta: #a44bf3; /* Nebula Magenta — sparing decorative glow */
-  --color-silver: #c9d3e0; /* Chrome Silver — secondary text on dark    */
-  --color-white: #f5f8fc; /* Starlight White — body text on dark / light bg */
+  --aurora-navy: #060b22; /* Deep Space Navy — primary background      */
+  --aurora-indigo: #141b3f; /* Midnight Indigo — cards/panels on dark  */
+  --aurora-cyan: #2bd9f5; /* Aurora Cyan — ONLY CTA/link/focus colour  */
+  --aurora-blue: #3fa9f5; /* Electric Blue — hover states, gradients   */
+  --aurora-violet: #7b3ff2; /* Aurora Violet — decorative only         */
+  --aurora-magenta: #a44bf3; /* Nebula Magenta — sparing decorative    */
+  --aurora-silver: #c9d3e0; /* Chrome Silver — secondary text on dark  */
+  --aurora-white: #f5f8fc; /* Starlight White — body text on dark      */
 
   /* ── Derived, contrast-safe ─────────────────────────────────────── */
-  --color-link-on-light: #0e8fae; /* darkened cyan for links on light bg */
-  --color-cyan-hover: #3fa9f5; /* CTA hover shifts cyan → electric blue  */
-  --color-navy-soft: #0a1130; /* between navy and indigo, section bands  */
-  --color-ink: #060b22; /* text colour on light sections                */
-  --color-ink-muted: #3b4563; /* secondary text on light sections       */
-  --color-line-dark: rgba(201, 211, 224, 0.14); /* hairlines on dark    */
-  --color-line-light: rgba(6, 11, 34, 0.12); /* hairlines on light      */
+  --aurora-link-on-light: #0e8fae; /* darkened cyan, links on light bg */
+  --aurora-navy-soft: #0a1130; /* between navy and indigo, band bg     */
+  --aurora-ink-muted: #3b4563; /* secondary text on light sections     */
+  --aurora-line-dark: rgba(201, 211, 224, 0.14); /* hairlines on dark  */
+  --aurora-line-light: rgba(6, 11, 34, 0.12); /* hairlines on light    */
 
   /* ── Signature gradient (cyan → blue → violet) ──────────────────── */
   --gradient-aurora: linear-gradient(
     100deg,
-    var(--color-cyan) 0%,
-    var(--color-blue) 45%,
-    var(--color-violet) 100%
+    var(--aurora-cyan) 0%,
+    var(--aurora-blue) 45%,
+    var(--aurora-violet) 100%
   );
   --gradient-aurora-soft: linear-gradient(
     115deg,
-    rgba(43, 217, 245, 0.22),
-    rgba(63, 169, 245, 0.14) 45%,
-    rgba(123, 63, 242, 0.2)
+    rgba(43, 217, 245, 0.2),
+    rgba(63, 169, 245, 0.12) 45%,
+    rgba(123, 63, 242, 0.18)
+  );
+  --gradient-chrome: linear-gradient(
+    172deg,
+    #f5f8fc 0%,
+    #c9d3e0 38%,
+    #8fa1bd 52%,
+    #e8eef7 66%,
+    #aebccf 100%
   );
 
   /* ── Typography (PDR §4.3) ──────────────────────────────────────── */
-  /* Font families are provided by next/font as --font-heading /
-     --font-body in src/app/layout.tsx (self-hosted, no third-party
-     requests at runtime). */
-  --text-base: 1rem; /* 16px minimum body size */
+  /* --font-montserrat / --font-inter are injected by next/font in
+     src/app/layout.tsx — self-hosted, zero third-party requests.      */
   --leading-body: 1.6;
-  --tracking-caps: 0.18em; /* letterspaced caps, logo "HEALTH SYSTEMS" treatment */
+  --tracking-caps: 0.18em; /* letterspaced caps, "HEALTH SYSTEMS" treatment */
 
-  /* ── Focus (PDR §12) ────────────────────────────────────────────── */
-  --focus-ring: 0 0 0 2px var(--color-navy), 0 0 0 4px var(--color-cyan);
+  /* ── Focus (PDR §12) — visible cyan ring on every interactive el ── */
+  --focus-ring-dark: 0 0 0 2px var(--aurora-navy), 0 0 0 4.5px var(--aurora-cyan);
+  --focus-ring-light: 0 0 0 2px var(--aurora-white), 0 0 0 4.5px var(--aurora-link-on-light);
 
-  /* ── Radii / shadows ────────────────────────────────────────────── */
+  /* ── Depth ──────────────────────────────────────────────────────── */
   --radius-card: 1rem;
-  --radius-button: 9999px;
-  --shadow-card: 0 20px 45px -18px rgba(2, 5, 18, 0.65);
-  --glow-cyan: 0 0 24px rgba(43, 217, 245, 0.35);
+  --shadow-card: 0 24px 50px -22px rgba(2, 5, 18, 0.7);
+  --glow-cyan: 0 0 28px rgba(43, 217, 245, 0.32);
 }
