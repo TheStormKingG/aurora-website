@@ -1,5 +1,6 @@
 import { handleFormPost } from "@/lib/api";
 import { getNotifier } from "@/lib/notify";
+import { getStore } from "@/lib/store";
 import { homeVisitSchema } from "@/lib/validation/schemas";
 import { getService } from "@/content/services";
 
@@ -9,6 +10,7 @@ export async function POST(request: Request) {
     schema: homeVisitSchema,
     refPrefix: "AUR-H",
     action: async (data, reference) => {
+      await getStore().saveHomeVisit(data, reference);
       const service = getService(data.service);
       await getNotifier().send({
         channel: "sms",

@@ -1,11 +1,12 @@
 import { handleFormPost } from "@/lib/api";
 import { getNotifier } from "@/lib/notify";
+import { getStore } from "@/lib/store";
 import { rightsRequestSchema } from "@/lib/validation/schemas";
 
 /**
  * Data-subject rights intake (PDR §9.2): every submission opens a
- * tracked, auditable record (the reference + structured log line) and
- * receipts the requester. One-month response clock starts here.
+ * tracked, auditable register row (aurora_rights_requests, with a
+ * one-month due_by clock) and receipts the requester.
  */
 export async function POST(request: Request) {
   return handleFormPost(request, {
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     schema: rightsRequestSchema,
     refPrefix: "AUR-R",
     action: async (data, reference) => {
-      // Auditable record: right exercised + when + reference (no PII).
+      await getStore().saveRightsRequest(data, reference);
       console.info(
         JSON.stringify({
           event: "rights-request.opened",

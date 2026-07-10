@@ -1,5 +1,6 @@
 import { handleFormPost } from "@/lib/api";
 import { getNotifier } from "@/lib/notify";
+import { getStore } from "@/lib/store";
 import { contactSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: Request) {
@@ -8,6 +9,7 @@ export async function POST(request: Request) {
     schema: contactSchema,
     refPrefix: "AUR-C",
     action: async (data, reference) => {
+      await getStore().saveContact(data, reference);
       await getNotifier().send({
         channel: "email",
         to: data.email,

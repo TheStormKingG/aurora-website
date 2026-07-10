@@ -117,9 +117,9 @@ export default function PrivacyNoticePage() {
             <h2 className="text-2xl">Who can see your information</h2>
             <p className="mt-4">
               Only Aurora staff who need it for the purpose you gave it, under role-based access
-              controls. Service providers that process data for us (hosting, email/SMS delivery)
-              act under GDPR Article 28 data-processing agreements and cannot use your data for
-              their own purposes. We keep a register of every processor. If any transfer leaves
+              controls. Service providers that process data for us (website hosting, database
+              hosting, email/SMS delivery) act under GDPR Article 28 data-processing agreements
+              and cannot use your data for their own purposes. We keep a register of every processor. If any transfer leaves
               the region, it is covered by adequacy decisions or Standard Contractual Clauses.
             </p>
           </section>
