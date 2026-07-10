@@ -59,7 +59,7 @@ export function NavBar() {
               <Link
                 href={item.href}
                 aria-current={isActive(item.href) ? "page" : undefined}
-                className={`text-sm font-medium transition-colors hover:text-cyan ${
+                className={`nav-underline text-sm font-medium transition-colors hover:text-cyan ${
                   isActive(item.href) ? "text-cyan" : "text-silver"
                 }`}
               >

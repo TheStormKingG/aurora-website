@@ -3,7 +3,9 @@ import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EcgDivider } from "@/components/EcgDivider";
+import { Reveal } from "@/components/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
+import { StepsIgnition } from "@/components/StepsIgnition";
 import { Icon } from "@/components/icons";
 import { news } from "@/content/news";
 import { services } from "@/content/services";
@@ -95,20 +97,23 @@ export default function HomePage() {
       {/* ── Services overview (8 pillars) ──────────────────────────── */}
       <section className="bg-navy-soft" aria-labelledby="services-heading">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <SectionHeading
-              eyebrow="Our services"
-              title={<span id="services-heading">Eight pillars of care, one connected system</span>}
-              lede="From mobile clinics rolling today to the wellness centres of tomorrow — every service writes to the same lifelong record."
-            />
-            <Button href="/services" variant="secondary" className="mb-1">
-              All services <Icon name="arrow" className="h-4 w-4" />
-            </Button>
-          </div>
+          <Reveal>
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <SectionHeading
+                eyebrow="Our services"
+                title={<span id="services-heading">Eight pillars of care, one connected system</span>}
+                lede="From mobile clinics rolling today to the wellness centres of tomorrow — every service writes to the same lifelong record."
+                revealEcg
+              />
+              <Button href="/services" variant="secondary" className="mb-1">
+                All services <Icon name="arrow" className="h-4 w-4" />
+              </Button>
+            </div>
+          </Reveal>
 
           <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map((s) => (
-              <li key={s.slug}>
+            {services.map((s, i) => (
+              <Reveal as="li" key={s.slug} index={i % 4}>
                 <Link href={`/services/${s.slug}`} className="group block h-full rounded-2xl">
                   <Card glow className="h-full">
                     <div className="flex h-full flex-col">
@@ -129,7 +134,7 @@ export default function HomePage() {
                     </div>
                   </Card>
                 </Link>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>
@@ -138,59 +143,56 @@ export default function HomePage() {
       {/* ── How it works (light long-form section) ─────────────────── */}
       <section className="section-light" aria-labelledby="how-heading">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-          <SectionHeading
-            eyebrow="How Aurora works"
-            title={<span id="how-heading">Care in three simple steps</span>}
-            align="center"
-            className="mx-auto"
-          />
-          <ol className="mx-auto mt-14 grid max-w-5xl gap-10 sm:grid-cols-3">
-            {[
+          <Reveal>
+            <SectionHeading
+              eyebrow="How Aurora works"
+              title={<span id="how-heading">Care in three simple steps</span>}
+              align="center"
+              className="mx-auto"
+              revealEcg
+            />
+          </Reveal>
+          <StepsIgnition
+            steps={[
               {
                 step: "1",
-                icon: "calendar" as const,
+                icon: "calendar",
                 title: "Book in minutes",
                 body: "Choose a service, a location or home visit, and a time. We ask only for what the appointment actually needs — nothing more.",
               },
               {
                 step: "2",
-                icon: "van" as const,
+                icon: "van",
                 title: "We come to you",
                 body: "A mobile clinic stop near you, a home visit, or a virtual consultation. Same clinicians, same standards, wherever care happens.",
               },
               {
                 step: "3",
-                icon: "orbit" as const,
+                icon: "orbit",
                 title: "Your record grows",
                 body: "Every visit builds your lifelong Aurora Health Record — readable, portable, and shared only with people you explicitly choose.",
               },
-            ].map((item) => (
-              <li key={item.step} className="relative text-center">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-navy text-cyan shadow-[0_10px_25px_-10px_rgba(6,11,34,0.5)]">
-                  <Icon name={item.icon} className="h-6 w-6" />
-                </span>
-                <span className="eyebrow mt-5 block !text-xs">Step {item.step}</span>
-                <h3 className="mt-2 text-xl">{item.title}</h3>
-                <p className="mt-3 text-base leading-relaxed text-muted-surface">{item.body}</p>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-14 text-center">
+            ]}
+          />
+          <Reveal className="mt-14 text-center">
             <Button href="/book" size="lg">
               Start a booking <Icon name="arrow" className="h-5 w-5" />
             </Button>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Privacy trust band ─────────────────────────────────────── */}
       <section className="starfield relative overflow-hidden bg-navy" aria-labelledby="trust-heading">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-          <SectionHeading
-            eyebrow="Why families trust Aurora"
-            title={<span id="trust-heading">Your health story belongs to you</span>}
-            lede="Handling health information is a responsibility we designed for from day one — not a policy we added later."
-          />
+          <Reveal>
+            <SectionHeading
+              eyebrow="Why families trust Aurora"
+              title={<span id="trust-heading">Your health story belongs to you</span>}
+              lede="Handling health information is a responsibility we designed for from day one — not a policy we added later."
+              revealEcg
+            />
+          </Reveal>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
@@ -213,12 +215,14 @@ export default function HomePage() {
                 title: "Secured end to end",
                 body: "Encryption in transit and at rest, MFA-protected staff access, and independent security testing.",
               },
-            ].map((t) => (
-              <Card key={t.title}>
-                <Icon name={t.icon} className="h-7 w-7 text-cyan" />
-                <h3 className="mt-4 text-lg">{t.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-silver">{t.body}</p>
-              </Card>
+            ].map((t, i) => (
+              <Reveal key={t.title} index={i}>
+                <Card className="h-full">
+                  <Icon name={t.icon} className="h-7 w-7 text-cyan" />
+                  <h3 className="mt-4 text-lg">{t.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-silver">{t.body}</p>
+                </Card>
+              </Reveal>
             ))}
           </div>
           <p className="mt-8 text-sm text-silver">
@@ -234,18 +238,21 @@ export default function HomePage() {
       {/* ── News highlights ────────────────────────────────────────── */}
       <section className="bg-navy-soft" aria-labelledby="news-heading">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <SectionHeading
-              eyebrow="News & programmes"
-              title={<span id="news-heading">What&rsquo;s happening at Aurora</span>}
-            />
-            <Button href="/news" variant="secondary" className="mb-1">
-              All news <Icon name="arrow" className="h-4 w-4" />
-            </Button>
-          </div>
+          <Reveal>
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <SectionHeading
+                eyebrow="News & programmes"
+                title={<span id="news-heading">What&rsquo;s happening at Aurora</span>}
+                revealEcg
+              />
+              <Button href="/news" variant="secondary" className="mb-1">
+                All news <Icon name="arrow" className="h-4 w-4" />
+              </Button>
+            </div>
+          </Reveal>
           <ul className="mt-12 grid gap-5 lg:grid-cols-3">
-            {highlights.map((n) => (
-              <li key={n.slug}>
+            {highlights.map((n, i) => (
+              <Reveal as="li" key={n.slug} index={i}>
                 <Link href={`/news/${n.slug}`} className="group block h-full rounded-2xl">
                   <Card glow className="h-full">
                     <div className="flex h-full flex-col">
@@ -271,7 +278,7 @@ export default function HomePage() {
                     </div>
                   </Card>
                 </Link>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>
@@ -281,20 +288,22 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-navy">
         <div className="aurora-wash" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-24">
-          <EcgDivider className="mx-auto mb-8" />
-          <h2 className="text-3xl sm:text-4xl">Ready when you are.</h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-silver">
-            Book a clinic appointment, request a home visit, or explore the programmes coming
-            to your community.
-          </p>
-          <div className="mt-9 flex flex-wrap justify-center gap-4">
-            <Button href="/book" size="lg">
-              Book an appointment
-            </Button>
-            <Button href="/contact" size="lg" variant="secondary">
-              Talk to us
-            </Button>
-          </div>
+          <Reveal>
+            <EcgDivider className="mx-auto mb-8" reveal />
+            <h2 className="text-3xl sm:text-4xl">Ready when you are.</h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-silver">
+              Book a clinic appointment, request a home visit, or explore the programmes coming
+              to your community.
+            </p>
+            <div className="mt-9 flex flex-wrap justify-center gap-4">
+              <Button href="/book" size="lg">
+                Book an appointment
+              </Button>
+              <Button href="/contact" size="lg" variant="secondary">
+                Talk to us
+              </Button>
+            </div>
+          </Reveal>
         </div>
       </section>
     </>

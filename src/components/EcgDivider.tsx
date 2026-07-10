@@ -6,9 +6,13 @@
 export function EcgDivider({
   className = "",
   animate = false,
+  reveal = false,
 }: {
   className?: string;
+  /** Draw on mount (page load). */
   animate?: boolean;
+  /** Draw when an ancestor <Reveal> gains .is-revealed (scroll). */
+  reveal?: boolean;
 }) {
   return (
     <svg
@@ -31,7 +35,7 @@ export function EcgDivider({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={animate ? "ecg-path" : undefined}
+        className={animate ? "ecg-path" : reveal ? "ecg-reveal-path" : undefined}
       />
     </svg>
   );

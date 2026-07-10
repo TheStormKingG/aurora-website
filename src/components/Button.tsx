@@ -11,14 +11,17 @@ type Variant = "primary" | "secondary" | "quiet";
 type Size = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-heading font-semibold transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 rounded-full font-heading font-semibold disabled:opacity-50 disabled:pointer-events-none";
 
+/* primary/secondary carry the springy hover-lift/press (motion-press,
+   globals.css) — preqal.org's whileHover/whileTap parity. */
 const variants: Record<Variant, string> = {
   primary:
-    "bg-cyan text-navy hover:bg-blue active:bg-blue shadow-[0_0_24px_rgba(43,217,245,0.25)]",
+    "motion-press bg-cyan text-navy hover:bg-blue active:bg-blue shadow-[0_0_24px_rgba(43,217,245,0.25)] hover:shadow-[0_6px_30px_rgba(43,217,245,0.4)]",
   secondary:
-    "border border-silver/40 text-starlight hover:border-cyan hover:text-cyan",
-  quiet: "text-cyan hover:text-blue underline-offset-4 hover:underline",
+    "motion-press border border-silver/40 text-starlight hover:border-cyan hover:text-cyan",
+  quiet:
+    "text-cyan hover:text-blue underline-offset-4 hover:underline transition-colors duration-200",
 };
 
 const sizes: Record<Size, string> = {

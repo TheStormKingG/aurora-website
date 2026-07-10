@@ -174,6 +174,115 @@ h6 {
   }
 }
 
+/* ── Scroll-triggered motion (preqal.org parity, CSS + IO) ────────── */
+
+/* Hidden until the IntersectionObserver in <Reveal> marks it; stagger
+   siblings with --reveal-i. no-JS fallback lives in layout <noscript>. */
+.reveal-scroll {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--reveal-i, 0) * 110ms);
+}
+.reveal-scroll.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ECG trace that draws when its Reveal ancestor enters the viewport */
+.ecg-reveal-path {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+}
+.is-revealed .ecg-reveal-path,
+.is-revealed.ecg-reveal-host .ecg-reveal-path {
+  animation: ecg-draw 1.8s ease-out 0.15s forwards;
+}
+
+/* Step ignition — icons light in sequence as the pulse arrives
+   (Aurora's take on preqal's scroll-scrubbed phase ignition). */
+.ignite-step .ignite-icon {
+  background: var(--aurora-navy);
+  color: var(--aurora-silver);
+  box-shadow: 0 10px 25px -10px rgba(6, 11, 34, 0.5);
+  transition:
+    color 0.4s ease,
+    box-shadow 0.4s ease,
+    background 0.4s ease;
+  transition-delay: var(--ignite-delay, 0ms);
+}
+.ignite-step .ignite-label {
+  transition: color 0.4s ease;
+  transition-delay: var(--ignite-delay, 0ms);
+}
+.ignite-step.is-lit .ignite-icon {
+  color: var(--aurora-cyan);
+  box-shadow:
+    0 0 0 1.5px rgba(43, 217, 245, 0.55),
+    0 0 30px rgba(43, 217, 245, 0.35),
+    0 10px 25px -10px rgba(6, 11, 34, 0.5);
+  animation: ignite-pulse 0.5s ease-out;
+  animation-delay: var(--ignite-delay, 0ms);
+}
+@keyframes ignite-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Route-change enter transition (template.tsx) — enter-only, subtle */
+.page-enter {
+  animation: page-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Interactive micro-motion (buttons / nav links) */
+.motion-press {
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.motion-press:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.motion-press:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Nav link underline slide */
+.nav-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1.5px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size 0.25s ease;
+  padding-bottom: 2px;
+}
+.nav-underline:hover,
+.nav-underline[aria-current="page"] {
+  background-size: 100% 1.5px;
+}
+
 /* PDR §4.4 / §12: respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -182,15 +291,21 @@ h6 {
   .aurora-wash::before,
   .aurora-wash::after,
   .ecg-path,
-  .reveal {
+  .reveal,
+  .page-enter {
     animation: none;
   }
-  .reveal {
+  .reveal,
+  .reveal-scroll {
     opacity: 1;
     transform: none;
   }
-  .ecg-path {
+  .ecg-path,
+  .ecg-reveal-path {
     stroke-dashoffset: 0;
+  }
+  .ignite-step .ignite-icon {
+    animation: none;
   }
   *,
   *::before,

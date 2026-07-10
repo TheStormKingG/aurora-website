@@ -48,6 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${montserrat.variable} ${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
+        {/* Scroll-reveal content must never be lost without JS */}
+        <noscript>
+          <style>{`.reveal-scroll{opacity:1;transform:none}.ecg-reveal-path{stroke-dashoffset:0}.ignite-step .ignite-icon{color:var(--aurora-cyan)}`}</style>
+        </noscript>
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-cyan focus:px-5 focus:py-2.5 focus:font-heading focus:font-semibold focus:text-navy"
