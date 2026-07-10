@@ -4,6 +4,9 @@
  * cluster forming the dot of "H.M", ECG pulse ring beneath, winged
  * caduceus merged into the final "A", letterspaced "HEALTH SYSTEMS".
  *
+ * Wordmark segments use textLength so motif positions stay exact
+ * regardless of font-loading state.
+ *
  * Dark backgrounds only (PDR §4.1). Decorative: consumers must pair
  * it with accessible text (see NavBar/Footer usage).
  */
@@ -18,11 +21,16 @@ const chromeStops = (
   </>
 );
 
+const wordmarkFont = {
+  fontFamily: "var(--font-montserrat), ui-sans-serif, sans-serif",
+  fontWeight: 700,
+} as const;
+
 /** Molecular cluster — the "dot" of H.M (three bonded atoms + satellite). */
 function Molecule({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`} strokeLinecap="round">
-      <path d="M0 0 L7 -4 M7 -4 L13 1 M7 -4 L8 -12" stroke="#2BD9F5" strokeWidth="1.4" opacity="0.9" />
+      <path d="M0 0 L7 -4 M7 -4 L13 1 M7 -4 L8 -12" stroke="#2BD9F5" strokeWidth="1.4" opacity="0.9" fill="none" />
       <circle cx="0" cy="0" r="3.1" fill="#2BD9F5" />
       <circle cx="7" cy="-4" r="2.2" fill="#C9D3E0" />
       <circle cx="13" cy="1" r="2.6" fill="#3FA9F5" />
@@ -31,7 +39,7 @@ function Molecule({ x, y, scale = 1 }: { x: number; y: number; scale?: number })
   );
 }
 
-/** Simplified winged caduceus, merged into the final "A". */
+/** Simplified winged caduceus, merged into the final "A" of AURORA. */
 function Caduceus({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
     <g
@@ -41,13 +49,10 @@ function Caduceus({ x, y, scale = 1 }: { x: number; y: number; scale?: number })
       strokeWidth="1.6"
       strokeLinecap="round"
     >
-      {/* staff */}
       <path d="M0 -14 V16" stroke="#C9D3E0" />
       <circle cx="0" cy="-17" r="2.2" fill="#2BD9F5" stroke="none" />
-      {/* entwined serpents */}
       <path d="M-6 -8 C 6 -4, -6 2, 5 7" opacity="0.95" />
       <path d="M6 -8 C -6 -4, 6 2, -5 7" opacity="0.7" />
-      {/* wings */}
       <path d="M-3 -13 C -9 -18, -16 -18, -20 -14 M-3 -13 C -8 -14, -13 -13, -16 -10" stroke="#C9D3E0" />
       <path d="M3 -13 C 9 -18, 16 -18, 20 -14 M3 -13 C 8 -14, 13 -13, 16 -10" stroke="#C9D3E0" />
     </g>
@@ -64,7 +69,7 @@ export function AuroraLogo({
 }) {
   return (
     <svg
-      viewBox={`0 0 560 ${tagline ? 168 : 138}`}
+      viewBox={`0 0 520 ${tagline ? 170 : 140}`}
       className={className}
       aria-hidden="true"
       focusable="false"
@@ -88,30 +93,28 @@ export function AuroraLogo({
         </filter>
       </defs>
 
-      {/* Wordmark — chrome/metallic */}
-      <text
-        x="0"
-        y="64"
-        fill="url(#al-chrome)"
-        fontFamily="var(--font-montserrat), ui-sans-serif, sans-serif"
-        fontWeight="700"
-        fontSize="62"
-        letterSpacing="2"
-      >
-        H
-        <tspan dx="16">M</tspan>
-        <tspan dx="22">AURORA</tspan>
-      </text>
+      {/* Wordmark — chrome/metallic, deterministic segment widths */}
+      <g fill="url(#al-chrome)" {...wordmarkFont} fontSize="62">
+        <text x="0" y="64" textLength="48" lengthAdjust="spacingAndGlyphs">
+          H
+        </text>
+        <text x="78" y="64" textLength="62" lengthAdjust="spacingAndGlyphs">
+          M
+        </text>
+        <text x="162" y="64" textLength="338" lengthAdjust="spacingAndGlyphs">
+          AURORA
+        </text>
+      </g>
 
       {/* Molecular cluster forming the dot of "H.M" */}
-      <Molecule x={56} y={58} />
+      <Molecule x={56} y={60} />
 
-      {/* Winged caduceus merged into the final "A" (overlaid apex) */}
-      <Caduceus x={521} y={36} scale={0.86} />
+      {/* Winged caduceus merged into the final "A" (overlaid at its apex) */}
+      <Caduceus x={474} y={38} scale={0.8} />
 
       {/* ECG pulse ring beneath the wordmark */}
       <path
-        d="M8 92 H150 l10-16 14 30 12-24 8 10 h96 l8-10 14 26 12-20 8 8 h210"
+        d="M4 92 H140 l10-16 14 30 12-24 8 10 h86 l8-10 14 26 12-20 8 8 h200"
         fill="none"
         stroke="url(#al-ecg)"
         strokeWidth="2.4"
@@ -124,26 +127,28 @@ export function AuroraLogo({
 
       {/* HEALTH SYSTEMS — letterspaced caps */}
       <text
-        x="10"
-        y="124"
+        x="4"
+        y="126"
         fill="#C9D3E0"
-        fontFamily="var(--font-montserrat), ui-sans-serif, sans-serif"
-        fontWeight="600"
+        {...wordmarkFont}
+        fontWeight={600}
         fontSize="21"
-        letterSpacing="14"
+        textLength="496"
+        lengthAdjust="spacing"
       >
         HEALTH SYSTEMS
       </text>
 
       {tagline ? (
         <text
-          x="10"
-          y="154"
+          x="4"
+          y="158"
           fill="#2BD9F5"
-          fontFamily="var(--font-montserrat), ui-sans-serif, sans-serif"
-          fontWeight="600"
+          {...wordmarkFont}
+          fontWeight={600}
           fontSize="14"
-          letterSpacing="4"
+          textLength="416"
+          lengthAdjust="spacing"
         >
           ILLUMINATING THE FUTURE OF CARE
         </text>
@@ -162,7 +167,6 @@ export function AuroraMark({ className }: { className?: string }) {
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="14" fill="#060B22" />
-      {/* A */}
       <path
         d="M18 50 L32 14 L46 50 M24.5 38.5 h15"
         fill="none"
@@ -171,7 +175,6 @@ export function AuroraMark({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* wings at the apex */}
       <path
         d="M28 16 C 22 11, 15 11, 11 15 M36 16 C 42 11, 49 11, 53 15"
         fill="none"
@@ -179,7 +182,6 @@ export function AuroraMark({ className }: { className?: string }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      {/* serpent curve across the A */}
       <path
         d="M24 30 C 32 26, 32 36, 40 32"
         fill="none"
@@ -187,7 +189,6 @@ export function AuroraMark({ className }: { className?: string }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      {/* molecule satellite */}
       <circle cx="49" cy="22" r="2.6" fill="#2BD9F5" />
       <circle cx="54" cy="17" r="1.6" fill="#F5F8FC" />
       <path d="M49 22 L54 17" stroke="#2BD9F5" strokeWidth="1.2" />
