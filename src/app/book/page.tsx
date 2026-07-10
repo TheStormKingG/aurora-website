@@ -12,13 +12,7 @@ export const metadata: Metadata = {
     "Book an Aurora appointment in four short steps: choose a service, a location, a time — and we confirm with you directly.",
 };
 
-export default async function BookPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ service?: string }>;
-}) {
-  const { service } = await searchParams;
-
+export default function BookPage() {
   return (
     <>
       <AuroraHero>
@@ -33,7 +27,7 @@ export default async function BookPage({
       <section className="bg-navy">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.6fr_1fr]">
           <Card>
-            <BookingWizard initialService={service} />
+            <BookingWizard />
           </Card>
 
           <aside className="flex flex-col gap-6" aria-label="Booking help">

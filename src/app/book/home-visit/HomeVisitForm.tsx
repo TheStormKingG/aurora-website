@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/icons";
+import { submitHomeVisit } from "@/lib/submit";
 import {
   CheckboxField,
   RadioCard,
@@ -56,21 +57,16 @@ export function HomeVisitForm() {
     setStatus({ state: "submitting" });
     setErrors({});
     try {
-      const res = await fetch("/api/home-visit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json();
-      if (res.ok && body.ok) {
-        setStatus({ state: "success", reference: body.reference });
-      } else if (res.status === 422 && body.errors) {
-        setErrors(body.errors);
+      const result = await submitHomeVisit(payload);
+      if (result.ok) {
+        setStatus({ state: "success", reference: result.reference });
+      } else if (result.errors) {
+        setErrors(result.errors);
         setStatus({ state: "editing" });
       } else {
         setStatus({
           state: "error",
-          message: body.error ?? "Something went wrong. Please try again.",
+          message: result.error ?? "Something went wrong. Please try again.",
         });
       }
     } catch {

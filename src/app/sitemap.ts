@@ -1,4 +1,7 @@
 import type { MetadataRoute } from "next";
+
+export const dynamic = "force-static";
+
 import { news } from "@/content/news";
 import { resources } from "@/content/resources";
 import { services } from "@/content/services";

@@ -1,17 +1,22 @@
 /**
- * Intake persistence abstraction — same pattern as src/lib/notify:
- * the Supabase adapter activates when SUPABASE_URL +
- * SUPABASE_SERVICE_KEY are configured; otherwise a dev adapter logs a
- * REDACTED structured line so flows still work locally.
+ * Intake persistence abstraction — SERVER path, used by the API route
+ * handlers when the site runs on a Node host. The current GitHub Pages
+ * deployment is a static export and uses src/lib/submit.ts instead
+ * (client-side, anon key, INSERT-only RLS). Both share the row mappers
+ * in src/lib/intake-rows.ts. Restore src/app/api/* from git history to
+ * reactivate this path.
  *
- * Server-only module (service-role key). Tables live behind RLS with
- * no policies — the browser can never touch them directly
- * (supabase/migrations/20260710163100_aurora_intake.sql).
- * NO CLINICAL DATA is ever written here (PDR §11.1).
+ * Server-only module (service-role key). NO CLINICAL DATA is ever
+ * written here (PDR §11.1).
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { NOTICE_VERSION } from "@/lib/consent";
+import {
+  bookingRow,
+  contactRow,
+  homeVisitRow,
+  rightsRequestRow,
+} from "@/lib/intake-rows";
 import type {
   BookingInput,
   ContactInput,
@@ -61,66 +66,18 @@ function makeSupabaseStore(url: string, serviceKey: string): IntakeStore {
     }
   }
 
-  const consentStamp = () => ({
-    consent_notice_version: NOTICE_VERSION,
-    consented_at: new Date().toISOString(),
-  });
-
   return {
     async saveBooking(d, reference) {
-      await insert("aurora_bookings", {
-        reference,
-        service: d.service,
-        location: d.location,
-        appointment_date: d.date,
-        time_window: d.timeWindow,
-        full_name: d.fullName,
-        date_of_birth: d.dateOfBirth,
-        phone: d.phone,
-        email: d.email || null,
-        reason: d.reason || null,
-        reminders_opt_in: d.remindersOptIn ?? false,
-        ...consentStamp(),
-      });
+      await insert("aurora_bookings", bookingRow(d, reference));
     },
     async saveHomeVisit(d, reference) {
-      await insert("aurora_home_visits", {
-        reference,
-        service: d.service,
-        address: d.address,
-        area: d.area,
-        visit_date: d.date,
-        time_window: d.timeWindow,
-        full_name: d.fullName,
-        phone: d.phone,
-        mobility_note: d.mobilityNote || null,
-        ...consentStamp(),
-      });
+      await insert("aurora_home_visits", homeVisitRow(d, reference));
     },
     async saveContact(d, reference) {
-      await insert("aurora_contacts", {
-        reference,
-        kind: d.kind,
-        full_name: d.fullName,
-        email: d.email,
-        organisation: d.organisation || null,
-        message: d.message,
-        ...consentStamp(),
-      });
+      await insert("aurora_contacts", contactRow(d, reference));
     },
     async saveRightsRequest(d, reference) {
-      const opened = new Date();
-      const dueBy = new Date(opened);
-      dueBy.setMonth(dueBy.getMonth() + 1); // one-month response clock (PDR §9.2)
-      await insert("aurora_rights_requests", {
-        reference,
-        requested_right: d.right,
-        full_name: d.fullName,
-        email: d.email,
-        details: d.details || null,
-        due_by: dueBy.toISOString().slice(0, 10),
-        opened_at: opened.toISOString(),
-      });
+      await insert("aurora_rights_requests", rightsRequestRow(d, reference));
     },
   };
 }

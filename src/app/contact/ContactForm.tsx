@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/icons";
+import { submitContact } from "@/lib/submit";
 import {
   CheckboxField,
   SelectField,
@@ -37,22 +38,17 @@ export function ContactForm() {
     setStatus({ state: "submitting" });
     setErrors({});
     try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json();
-      if (res.ok && body.ok) {
-        setStatus({ state: "success", reference: body.reference });
+      const result = await submitContact(payload);
+      if (result.ok) {
+        setStatus({ state: "success", reference: result.reference });
         form.reset();
-      } else if (res.status === 422 && body.errors) {
-        setErrors(body.errors);
+      } else if (result.errors) {
+        setErrors(result.errors);
         setStatus({ state: "idle" });
       } else {
         setStatus({
           state: "error",
-          message: body.error ?? "Something went wrong. Please try again.",
+          message: result.error ?? "Something went wrong. Please try again.",
         });
       }
     } catch {

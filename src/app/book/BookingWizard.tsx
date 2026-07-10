@@ -11,6 +11,7 @@ import {
 } from "@/components/forms/fields";
 import { bookableServices } from "@/content/services";
 import { bookingLocations } from "@/content/locations";
+import { submitBooking } from "@/lib/submit";
 
 /**
  * Booking flow (PDR §6.1): service → location → date/time → details →
@@ -48,13 +49,10 @@ type Status =
   | { state: "success"; reference: string }
   | { state: "error"; message: string };
 
-export function BookingWizard({ initialService }: { initialService?: string }) {
-  const validInitial = bookableServices.some((s) => s.slug === initialService)
-    ? (initialService as string)
-    : "";
+export function BookingWizard() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>({
-    service: validInitial,
+    service: "",
     location: "",
     date: "",
     timeWindow: "",
@@ -76,6 +74,15 @@ export function BookingWizard({ initialService }: { initialService?: string }) {
     if (mounted.current) headingRef.current?.focus();
     mounted.current = true;
   }, [step]);
+
+  // ?service= prefill, read client-side (static export has no server
+  // searchParams). Only applies before the user has chosen anything.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("service");
+    if (slug && bookableServices.some((s) => s.slug === slug)) {
+      setForm((f) => (f.service ? f : { ...f, service: slug }));
+    }
+  }, []);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -115,16 +122,11 @@ export function BookingWizard({ initialService }: { initialService?: string }) {
     setStatus({ state: "submitting" });
     setErrors({});
     try {
-      const res = await fetch("/api/booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, website: "" }),
-      });
-      const body = await res.json();
-      if (res.ok && body.ok) {
-        setStatus({ state: "success", reference: body.reference });
-      } else if (res.status === 422 && body.errors) {
-        setErrors(body.errors);
+      const result = await submitBooking({ ...form, website: "" });
+      if (result.ok) {
+        setStatus({ state: "success", reference: result.reference });
+      } else if (result.errors) {
+        setErrors(result.errors);
         setStatus({ state: "editing" });
         // Send the user back to the earliest step with an error.
         const stepFields: (keyof FormState)[][] = [
@@ -133,13 +135,13 @@ export function BookingWizard({ initialService }: { initialService?: string }) {
           ["date", "timeWindow"],
           ["fullName", "dateOfBirth", "phone", "email", "reason", "consent"],
         ];
-        const errKeys = Object.keys(body.errors);
+        const errKeys = Object.keys(result.errors);
         const target = stepFields.findIndex((fields) => fields.some((f) => errKeys.includes(f)));
         if (target >= 0) setStep(target);
       } else {
         setStatus({
           state: "error",
-          message: body.error ?? "Something went wrong. Please try again.",
+          message: result.error ?? "Something went wrong. Please try again.",
         });
       }
     } catch {
