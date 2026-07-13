@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { primaryNav, utilityNav, site } from "@/content/site";
-import { AuroraLogo, AuroraMark } from "./AuroraLogo";
+import { AuroraMark } from "./AuroraLogo";
 import { Icon } from "./icons";
 
 /**
@@ -48,7 +49,14 @@ export function NavBar() {
           aria-label={`${site.name} — home`}
         >
           <AuroraMark className="h-9 w-9 lg:hidden" />
-          <AuroraLogo className="hidden h-11 w-auto lg:block" />
+          <Image
+            src="/brand/hm-aurora-logo.png"
+            alt=""
+            width={1000}
+            height={276}
+            priority
+            className="hidden h-11 w-auto lg:block"
+          />
           <span className="sr-only">{site.name}</span>
         </Link>
 

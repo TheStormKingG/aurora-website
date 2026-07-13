@@ -1,6 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
 import { footerNav, site } from "@/content/site";
-import { AuroraLogo } from "./AuroraLogo";
 import { EcgDivider } from "./EcgDivider";
 import { Icon } from "./icons";
 
@@ -11,9 +11,16 @@ export function Footer() {
         <div className="grid gap-12 lg:grid-cols-[1.3fr_2fr]">
           <div>
             <Link href="/" aria-label={`${site.name} — home`} className="inline-block">
-              <AuroraLogo className="h-16 w-auto" tagline />
+              <Image
+                src="/brand/hm-aurora-logo.png"
+                alt=""
+                width={1000}
+                height={276}
+                className="h-14 w-auto"
+              />
               <span className="sr-only">{site.name}</span>
             </Link>
+            <p className="eyebrow mt-4">{site.tagline}</p>
             <p className="mt-6 max-w-sm text-sm leading-relaxed text-silver">
               {site.description}
             </p>
