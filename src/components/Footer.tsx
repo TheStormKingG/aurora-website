@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { footerNav, site } from "@/content/site";
+import { asset } from "@/lib/asset";
 import { EcgDivider } from "./EcgDivider";
 import { Icon } from "./icons";
 
@@ -12,7 +13,7 @@ export function Footer() {
           <div>
             <Link href="/" aria-label={`${site.name} — home`} className="inline-block">
               <Image
-                src="/brand/hm-aurora-logo.png"
+                src={asset("/brand/hm-aurora-logo.png")}
                 alt=""
                 width={1000}
                 height={276}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { primaryNav, utilityNav, site } from "@/content/site";
+import { asset } from "@/lib/asset";
 import { AuroraMark } from "./AuroraLogo";
 import { Icon } from "./icons";
 
@@ -50,7 +51,7 @@ export function NavBar() {
         >
           <AuroraMark className="h-9 w-9 lg:hidden" />
           <Image
-            src="/brand/hm-aurora-logo.png"
+            src={asset("/brand/hm-aurora-logo.png")}
             alt=""
             width={1000}
             height={276}
