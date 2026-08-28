@@ -138,6 +138,18 @@ export const patientRegistrationSchema = z.object({
 });
 export type PatientRegistrationInput = z.infer<typeof patientRegistrationSchema>;
 
+// Google-user profile completion (PRD §6 / spec §5): the DOB Google can't
+// give us, plus optional phone and explicit consent. No clinical fields.
+export const completeProfileSchema = z.object({
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter your date of birth.")
+    .refine((d) => new Date(`${d}T00:00:00`) < new Date(), "Date of birth must be in the past."),
+  phone: phone.optional().or(z.literal("")),
+  consent,
+});
+export type CompleteProfileInput = z.infer<typeof completeProfileSchema>;
+
 /** Flatten zod issues to a field→message map for form display. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
