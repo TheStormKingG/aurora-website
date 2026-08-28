@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
+import { asset } from "@/lib/asset";
 import { site } from "@/content/site";
 
 export const metadata: Metadata = {
@@ -47,7 +49,7 @@ export default function AboutPage() {
           as="h1"
           eyebrow="About us"
           title="Care that reaches people. A record that lasts a lifetime."
-          lede={`${site.name} is an emerging health innovation company operating as an umbrella organisation — developing healthcare solutions through a phased growth model, from mobile clinics to a lifelong digital health platform.`}
+          lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
         />
       </AuroraHero>
 
@@ -58,16 +60,13 @@ export default function AboutPage() {
             <SectionHeading eyebrow="Our mission" title="Illuminating the future of care" />
             <div className="prose-light mt-6 space-y-4 text-base leading-relaxed">
               <p>
-                Too many people meet the health system only when something is already wrong —
-                after the long trip to town, the day of lost wages, the queue. Aurora exists to
-                change the direction of travel: <strong>care goes to people</strong>, early and
-                often, so problems are found while they are still small.
+                Most people meet the health system only once something is already wrong. Aurora
+                changes the direction of travel: <strong>care goes to people</strong>, early and
+                often, so problems are caught while they&rsquo;re still small.
               </p>
               <p>
-                And because health is a lifelong story, not a stack of loose papers, every
-                Aurora service writes to one secure record that follows each patient from
-                pregnancy through ageing — readable by the patient, controlled by the patient,
-                portable for life.
+                And every visit writes to one secure record — readable, portable, and controlled
+                by the patient, from pregnancy through ageing.
               </p>
             </div>
           </div>
@@ -109,47 +108,68 @@ export default function AboutPage() {
       {/* Leadership */}
       <section className="bg-navy">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-          <SectionHeading
-            eyebrow="Leadership"
-            title="Founded and led by Hannah Munro"
-          />
-          <div className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-            <Card>
+          <SectionHeading eyebrow="Leadership" title="Founded and led by Hannah Munro" />
+
+          <div className="mt-12 grid gap-10 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-14">
+            {/* Founder portrait */}
+            <figure className="mx-auto w-full max-w-[20rem]">
+              <div className="relative">
+                <div
+                  aria-hidden
+                  className="absolute -inset-3 rounded-3xl opacity-70 blur-2xl"
+                  style={{ background: "var(--gradient-aurora-soft)" }}
+                />
+                <Image
+                  src={asset("/brand/hannah-munro.jpg")}
+                  alt="Hannah Munro, Founder & CEO of H.M. Aurora Health Systems, in an Aurora coat with a stethoscope"
+                  width={500}
+                  height={878}
+                  className="relative w-full rounded-2xl border border-line-dark object-cover shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)]"
+                />
+              </div>
+              <figcaption className="mt-4 text-center text-sm text-silver">
+                <span className="font-heading font-semibold text-starlight">{site.founder}</span>
+                <span className="mx-2 text-silver/50">·</span>
+                {site.founderRole}
+              </figcaption>
+            </figure>
+
+            {/* Bio + pull quote */}
+            <div>
               <p className="eyebrow !text-xs">Founder &amp; CEO</p>
-              <h3 className="mt-3 text-2xl">{site.founder}</h3>
-              <div className="mt-4 space-y-4 text-base leading-relaxed text-silver">
-                <p>
-                  Hannah founded H.M. Aurora Health Systems around a simple observation: the
-                  people who most need consistent healthcare are the ones the system asks to
-                  travel furthest for it. Aurora is her answer — a phased health company that
-                  starts on the road and builds toward a connected ecosystem of centres,
-                  programmes, and digital records.
-                </p>
-                <p>
-                  She leads Aurora&rsquo;s strategy, clinical partnerships, and its founding
-                  principle that patient trust is infrastructure: earned through privacy,
-                  transparency, and care that shows up.
+              <p className="mt-4 text-lg leading-relaxed text-silver">
+                Hannah founded Aurora on one observation: the people who most need consistent
+                care are the ones asked to travel furthest for it. Her answer is a phased health
+                company that starts on the road and builds toward a connected ecosystem of
+                clinics, programmes, and lifelong digital records.
+              </p>
+              <blockquote className="mt-6 border-l-2 border-cyan pl-5 text-xl font-heading font-semibold leading-snug text-starlight">
+                &ldquo;Patient trust is infrastructure — earned through privacy, transparency,
+                and care that shows up.&rdquo;
+              </blockquote>
+            </div>
+          </div>
+
+          {/* Clinical governance */}
+          <Card className="mt-10">
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="eyebrow !text-xs">Clinical governance</p>
+                <h3 className="mt-2 text-xl">Clinical Advisory Board</h3>
+                <p className="mt-2 max-w-2xl text-base leading-relaxed text-silver">
+                  Protocols, screening standards, and education come from practising clinicians
+                  across primary care, obstetrics, paediatrics, and public health — announced as
+                  the network grows.
                 </p>
               </div>
-            </Card>
-            <Card>
-              <p className="eyebrow !text-xs">Clinical governance</p>
-              <h3 className="mt-3 text-xl">Clinical Advisory Board</h3>
-              <p className="mt-4 text-base leading-relaxed text-silver">
-                Aurora&rsquo;s protocols, screening standards, and education content are
-                developed under the review of practising clinicians across primary care,
-                obstetrics, paediatrics, and public health. Board appointments are announced
-                on the News page as the network grows.
-              </p>
-              <p className="mt-4 text-sm text-silver/80">
-                Interested in serving?{" "}
-                <a href="/contact" className="text-cyan underline underline-offset-2 hover:text-blue">
-                  Contact the leadership team
-                </a>
-                .
-              </p>
-            </Card>
-          </div>
+              <a
+                href="/contact"
+                className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-cyan hover:text-blue"
+              >
+                Interested in serving? <Icon name="arrow" className="h-4 w-4" />
+              </a>
+            </div>
+          </Card>
         </div>
       </section>
 
