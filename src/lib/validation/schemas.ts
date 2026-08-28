@@ -122,6 +122,22 @@ export const rightsRequestSchema = z.object({
 });
 export type RightsRequestInput = z.infer<typeof rightsRequestSchema>;
 
+// Patient account registration (PRD §6). Data-minimised: email, password,
+// name, DOB + explicit consent. No clinical fields.
+export const patientRegistrationSchema = z.object({
+  fullName: name,
+  email,
+  password: z.string().min(10, "Use at least 10 characters.").max(200),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter your date of birth.")
+    .refine((d) => new Date(`${d}T00:00:00`) < new Date(), "Date of birth must be in the past."),
+  phone: phone.optional().or(z.literal("")),
+  marketingOptIn: z.boolean().optional().default(false), // most-private default
+  consent,
+});
+export type PatientRegistrationInput = z.infer<typeof patientRegistrationSchema>;
+
 /** Flatten zod issues to a field→message map for form display. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
