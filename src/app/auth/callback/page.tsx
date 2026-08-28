@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { AuroraHero } from "@/components/AuroraHero";
 import { getSupabase } from "@/lib/supabase/client";
 import { NOTICE_VERSION } from "@/lib/consent";
-import { asset } from "@/lib/asset";
 
 // Handles both email-verification and Google OAuth returns. detectSessionInUrl
 // exchanges the code/hash for a session; then we route by profile completeness:
@@ -24,7 +23,7 @@ export default function AuthCallbackPage() {
         .from("profiles").select("dob").eq("id", uid).maybeSingle();
       if (!profile || profile.dob === null) {
         // New Google user: DOB + explicit consent are captured at completion.
-        router.replace(asset("/account/complete/"));
+        router.replace("/account/complete/");
         return;
       }
 
@@ -35,7 +34,7 @@ export default function AuthCallbackPage() {
           user_id: uid, notice_version: NOTICE_VERSION, scope: { account: true, marketing: false },
         });
       }
-      router.replace(asset("/account/patient/"));
+      router.replace("/account/patient/");
     });
   }, [router]);
   return (

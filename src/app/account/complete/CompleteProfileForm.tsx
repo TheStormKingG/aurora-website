@@ -7,7 +7,6 @@ import { CheckboxField, TextField } from "@/components/forms/fields";
 import { completeProfileSchema, fieldErrors } from "@/lib/validation/schemas";
 import { getSupabase } from "@/lib/supabase/client";
 import { NOTICE_VERSION } from "@/lib/consent";
-import { asset } from "@/lib/asset";
 
 export function CompleteProfileForm() {
   const router = useRouter();
@@ -20,7 +19,7 @@ export function CompleteProfileForm() {
   useEffect(() => {
     const supabase = getSupabase();
     supabase.from("profiles").select("dob").single().then(({ data }) => {
-      if (data && data.dob) router.replace(asset("/account/patient/"));
+      if (data && data.dob) router.replace("/account/patient/");
       else setReady(true);
     });
   }, [router]);
@@ -51,7 +50,7 @@ export function CompleteProfileForm() {
     await supabase.from("account_consents").insert({
       user_id: uid, notice_version: NOTICE_VERSION, scope: { account: true, marketing: false },
     });
-    router.replace(asset("/account/patient/"));
+    router.replace("/account/patient/");
   }
 
   if (!ready) return <p className="text-silver">Loading…</p>;

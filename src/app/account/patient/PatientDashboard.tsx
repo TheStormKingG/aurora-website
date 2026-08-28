@@ -7,7 +7,6 @@ import { Card } from "@/components/Card";
 import { Icon } from "@/components/icons";
 import { getSupabase } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth/session";
-import { asset } from "@/lib/asset";
 
 type Profile = { full_name: string | null; dob: string | null; phone: string | null; marketing_opt_in: boolean };
 type Booking = { reference: string; service: string; appointment_date: string; time_window: string; status: string };
@@ -42,14 +41,14 @@ export function PatientDashboard() {
     // Self-service hard delete via an Edge Function is a later hardening step;
     // for v1 we sign out and open a rights-request so Aurora completes erasure.
     await signOut();
-    router.replace(asset("/privacy-centre/rights-request/"));
+    router.replace("/privacy-centre/rights-request/");
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl">Your account</h1>
-        <Button variant="secondary" size="sm" onClick={() => signOut().then(() => router.replace(asset("/")))}>
+        <Button variant="secondary" size="sm" onClick={() => signOut().then(() => router.replace("/"))}>
           Sign out
         </Button>
       </div>

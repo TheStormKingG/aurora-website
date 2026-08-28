@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/forms/fields";
 import { updatePassword } from "@/lib/auth/patient";
-import { asset } from "@/lib/asset";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -18,7 +17,7 @@ export function ResetPasswordForm() {
     setBusy(true); setError(undefined);
     const r = await updatePassword(pw);
     setBusy(false);
-    if (r.ok) router.replace(asset("/account/patient/"));
+    if (r.ok) router.replace("/account/patient/");
     else setError(r.error);
   }
   return (

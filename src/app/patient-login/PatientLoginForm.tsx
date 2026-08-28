@@ -7,7 +7,6 @@ import { Button } from "@/components/Button";
 import { GoogleButton } from "@/components/GoogleButton";
 import { TextField } from "@/components/forms/fields";
 import { signIn, sendPasswordReset } from "@/lib/auth/patient";
-import { asset } from "@/lib/asset";
 
 export function PatientLoginForm() {
   const router = useRouter();
@@ -23,7 +22,7 @@ export function PatientLoginForm() {
     setBusy(true); setError(undefined);
     const r = await signIn(email, password);
     setBusy(false);
-    if (r.ok) router.replace(asset("/account/patient/"));
+    if (r.ok) router.replace("/account/patient/");
     else setError("Email or password is incorrect.");
   }
 
