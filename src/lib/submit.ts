@@ -21,6 +21,7 @@ import {
   homeVisitRow,
   rightsRequestRow,
 } from "@/lib/intake-rows";
+import { getSupabase } from "@/lib/supabase/client";
 import {
   bookingSchema,
   contactSchema,
@@ -87,9 +88,23 @@ async function submit<T>(
     return { ok: true, reference };
   }
 
-  const { error } = await supabase
-    .from(options.table)
-    .insert(options.toRow(parsed.data, reference));
+  // Link the row to the signed-in patient, when there is one, so it surfaces
+  // in their dashboard. This must be checked on the shared, persisted client
+  // (@/lib/supabase/client) — the `supabase` instance above is a dedicated
+  // anon-only client (persistSession: false, in-memory storage) that never
+  // reads the real session, by design, for anonymous intake. The insert
+  // itself still travels over that anon-only client; RLS is the real
+  // boundary (see file header), and the existing INSERT-only policy already
+  // permits it. Anonymous bookings keep user_id null and are unaffected.
+  const authUser =
+    options.table === "aurora_bookings"
+      ? (await getSupabase().auth.getUser()).data.user
+      : null;
+  const row = authUser
+    ? { ...options.toRow(parsed.data, reference), user_id: authUser.id }
+    : options.toRow(parsed.data, reference);
+
+  const { error } = await supabase.from(options.table).insert(row);
   if (error) {
     console.error(
       JSON.stringify({ event: "intake.insert_failed", table: options.table, code: error.code })
