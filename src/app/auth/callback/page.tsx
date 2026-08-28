@@ -7,16 +7,27 @@ import { getSupabase } from "@/lib/supabase/client";
 import { NOTICE_VERSION } from "@/lib/consent";
 import { asset } from "@/lib/asset";
 
-// detectSessionInUrl parses the verification hash; then we ensure a consent
-// row exists (covers the confirm-email case where signUp had no session).
+// Handles both email-verification and Google OAuth returns. detectSessionInUrl
+// exchanges the code/hash for a session; then we route by profile completeness:
+// a user with no date of birth (a new Google user) completes their profile
+// first; everyone else goes to the dashboard (ensuring a consent row exists).
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [msg, setMsg] = useState("Confirming your account…");
+  const [msg, setMsg] = useState("Signing you in…");
   useEffect(() => {
     const supabase = getSupabase();
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { setMsg("This link has expired. Please sign in."); return; }
       const uid = data.session.user.id;
+
+      const { data: profile } = await supabase
+        .from("profiles").select("dob").eq("id", uid).maybeSingle();
+      if (!profile || profile.dob === null) {
+        // New Google user: DOB + explicit consent are captured at completion.
+        router.replace(asset("/account/complete/"));
+        return;
+      }
+
       const { data: existing } = await supabase
         .from("account_consents").select("id").eq("user_id", uid).limit(1);
       if (!existing || existing.length === 0) {
