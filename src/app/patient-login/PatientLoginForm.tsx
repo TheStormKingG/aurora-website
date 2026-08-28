@@ -42,7 +42,7 @@ export function PatientLoginForm() {
         By continuing you agree to our{" "}
         <a href="/privacy-centre/notice" className="text-cyan underline underline-offset-2">privacy notice</a>.
       </p>
-      <div className="flex items-center gap-3 text-xs text-silver/50">
+      <div className="flex items-center gap-3 text-xs text-silver/80">
         <span className="h-px flex-1 bg-line-dark" aria-hidden="true" />
         or
         <span className="h-px flex-1 bg-line-dark" aria-hidden="true" />
