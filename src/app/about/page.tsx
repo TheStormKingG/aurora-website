@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { AuroraHero } from "@/components/AuroraHero";
-import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
@@ -161,27 +160,6 @@ export default function AboutPage() {
               </blockquote>
             </div>
           </div>
-
-          {/* Clinical governance */}
-          <Card className="mt-10">
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div>
-                <p className="eyebrow !text-xs">Clinical governance</p>
-                <h3 className="mt-2 text-xl">Clinical Advisory Board</h3>
-                <p className="mt-2 max-w-2xl text-base leading-relaxed text-silver">
-                  Protocols, screening standards, and education come from practising clinicians
-                  across primary care, obstetrics, paediatrics, and public health — announced as
-                  the network grows.
-                </p>
-              </div>
-              <a
-                href="/contact"
-                className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-cyan hover:text-blue"
-              >
-                Interested in serving? <Icon name="arrow" className="h-4 w-4" />
-              </a>
-            </div>
-          </Card>
         </div>
       </section>
 
@@ -213,14 +191,6 @@ export default function AboutPage() {
               </li>
             ))}
           </ol>
-          <div className="mt-12 flex flex-wrap gap-4">
-            <Button href="/services">
-              Explore our services <Icon name="arrow" className="h-4 w-4" />
-            </Button>
-            <Button href="/careers" variant="secondary">
-              Join the team
-            </Button>
-          </div>
         </div>
       </section>
     </>
