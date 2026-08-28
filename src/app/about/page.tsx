@@ -127,10 +127,15 @@ export default function AboutPage() {
                   className="relative w-full rounded-2xl border border-line-dark object-cover shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)]"
                 />
               </div>
-              <figcaption className="mt-4 text-center text-sm text-silver">
-                <span className="font-heading font-semibold text-starlight">{site.founder}</span>
-                <span className="mx-2 text-silver/50">·</span>
-                {site.founderRole}
+              <figcaption className="mt-4 text-center">
+                <p className="text-sm text-silver">
+                  <span className="font-heading font-semibold text-starlight">{site.founder}</span>
+                  <span className="mx-2 text-silver/50">·</span>
+                  {site.founderRole}
+                </p>
+                <p className="mt-1 text-xs text-silver/70">
+                  Medicine, Greenheart Medical University · Cofounder &amp; VP, CYCLE
+                </p>
               </figcaption>
             </figure>
 
@@ -138,8 +143,15 @@ export default function AboutPage() {
             <div>
               <p className="eyebrow !text-xs">Founder &amp; CEO</p>
               <p className="mt-4 text-lg leading-relaxed text-silver">
-                Hannah founded Aurora on one observation: the people who most need consistent
-                care are the ones asked to travel furthest for it. Her answer is a phased health
+                Hannah Munro is the founder of H.M. Aurora Health Systems, based in Georgetown,
+                Guyana. Her medical training at Greenheart Medical University and her work as
+                cofounder and vice president of the Caribbean Youth Conservation Leaders Ensemble
+                (CYCLE) share one thread: healthy people and healthy communities are built
+                together, close to home.
+              </p>
+              <p className="mt-4 text-base leading-relaxed text-silver">
+                Aurora grew from a simple observation — the people who most need consistent care
+                are the ones asked to travel furthest for it. Her answer is a phased health
                 company that starts on the road and builds toward a connected ecosystem of
                 clinics, programmes, and lifelong digital records.
               </p>
