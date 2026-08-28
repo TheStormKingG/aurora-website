@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { primaryNav, utilityNav, site } from "@/content/site";
 import { asset } from "@/lib/asset";
+import { useSession } from "@/lib/auth/session";
 import { AuroraMark } from "./AuroraLogo";
 import { Icon } from "./icons";
 
@@ -18,6 +19,7 @@ export function NavBar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const menuId = useId();
+  const session = useSession();
 
   // Close the panel on route change and restore body scroll.
   useEffect(() => {
@@ -79,13 +81,23 @@ export function NavBar() {
         </ul>
 
         <div className="ml-auto hidden items-center gap-3 xl:ml-6 xl:flex">
-          <Link
-            href="/patient-login"
-            className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
-          >
-            <Icon name="lock" className="h-4 w-4" />
-            Patient Login
-          </Link>
+          {session ? (
+            <Link
+              href="/account/patient"
+              className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
+            >
+              <Icon name="users" className="h-4 w-4" />
+              Account
+            </Link>
+          ) : (
+            <Link
+              href="/patient-login"
+              className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
+            >
+              <Icon name="lock" className="h-4 w-4" />
+              Patient Login
+            </Link>
+          )}
           <Link
             href="/book"
             className="inline-flex items-center gap-1.5 rounded-full bg-cyan px-5 py-2 font-heading text-sm font-semibold text-navy transition-colors hover:bg-blue"
@@ -154,16 +166,27 @@ export function NavBar() {
               <Icon name="calendar" className="h-5 w-5" />
               Book Appointment
             </Link>
-            {utilityNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-silver/40 px-6 py-3.5 font-heading font-semibold text-starlight"
-              >
-                <Icon name="lock" className="h-4 w-4" />
-                {item.label}
-              </Link>
-            ))}
+            {utilityNav.map((item) =>
+              item.href === "/patient-login" && session ? (
+                <Link
+                  key={item.href}
+                  href="/account/patient"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-silver/40 px-6 py-3.5 font-heading font-semibold text-starlight"
+                >
+                  <Icon name="users" className="h-4 w-4" />
+                  Account
+                </Link>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-silver/40 px-6 py-3.5 font-heading font-semibold text-starlight"
+                >
+                  <Icon name="lock" className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              )
+            )}
           </div>
           <p className="eyebrow mt-10 text-center">{site.tagline}</p>
         </nav>
