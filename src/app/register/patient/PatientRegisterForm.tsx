@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/Button";
+import { GoogleButton } from "@/components/GoogleButton";
 import { Icon } from "@/components/icons";
 import { CheckboxField, TextField } from "@/components/forms/fields";
 import { patientRegistrationSchema, fieldErrors } from "@/lib/validation/schemas";
@@ -47,30 +48,42 @@ export function PatientRegisterForm() {
 
   const today = new Date().toISOString().slice(0, 10);
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-      <TextField id="fullName" name="fullName" label="Full name" autoComplete="name" error={errors.fullName} />
-      <div className="grid gap-5 sm:grid-cols-2">
-        <TextField id="email" name="email" type="email" label="Email" autoComplete="email" error={errors.email} />
-        <TextField id="password" name="password" type="password" label="Password" autoComplete="new-password"
-          hint="At least 10 characters." error={errors.password} />
+    <div className="flex flex-col gap-5">
+      <GoogleButton />
+      <p className="text-center text-xs text-silver/70">
+        By continuing you agree to our{" "}
+        <a href="/privacy-centre/notice" className="text-cyan underline underline-offset-2">privacy notice</a>.
+      </p>
+      <div className="flex items-center gap-3 text-xs text-silver/50">
+        <span className="h-px flex-1 bg-line-dark" aria-hidden="true" />
+        or
+        <span className="h-px flex-1 bg-line-dark" aria-hidden="true" />
       </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <TextField id="dateOfBirth" name="dateOfBirth" type="date" max={today} label="Date of birth"
-          autoComplete="bday" hint="Used to match your record safely." error={errors.dateOfBirth} />
-        <TextField id="phone" name="phone" type="tel" label="Phone" optional autoComplete="tel" error={errors.phone} />
-      </div>
-      <CheckboxField id="marketingOptIn" name="marketingOptIn"
-        label="Send me occasional health tips and Aurora updates (off unless you choose it)." />
-      <CheckboxField id="consent" name="consent" error={errors.consent}
-        label="I consent to Aurora creating and holding this account to provide me care services. I can withdraw and delete it any time." />
-      <div className="flex items-center gap-4">
-        <Button type="submit" disabled={status.state === "submitting"}>
-          {status.state === "submitting" ? "Creating…" : "Create account"}
-        </Button>
-        {status.state === "error" ? (
-          <p role="alert" className="text-sm font-medium text-[#ff9db0]">{status.message}</p>
-        ) : null}
-      </div>
-    </form>
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+        <TextField id="fullName" name="fullName" label="Full name" autoComplete="name" error={errors.fullName} />
+        <div className="grid gap-5 sm:grid-cols-2">
+          <TextField id="email" name="email" type="email" label="Email" autoComplete="email" error={errors.email} />
+          <TextField id="password" name="password" type="password" label="Password" autoComplete="new-password"
+            hint="At least 10 characters." error={errors.password} />
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <TextField id="dateOfBirth" name="dateOfBirth" type="date" max={today} label="Date of birth"
+            autoComplete="bday" hint="Used to match your record safely." error={errors.dateOfBirth} />
+          <TextField id="phone" name="phone" type="tel" label="Phone" optional autoComplete="tel" error={errors.phone} />
+        </div>
+        <CheckboxField id="marketingOptIn" name="marketingOptIn"
+          label="Send me occasional health tips and Aurora updates (off unless you choose it)." />
+        <CheckboxField id="consent" name="consent" error={errors.consent}
+          label="I consent to Aurora creating and holding this account to provide me care services. I can withdraw and delete it any time." />
+        <div className="flex items-center gap-4">
+          <Button type="submit" disabled={status.state === "submitting"}>
+            {status.state === "submitting" ? "Creating…" : "Create account"}
+          </Button>
+          {status.state === "error" ? (
+            <p role="alert" className="text-sm font-medium text-[#ff9db0]">{status.message}</p>
+          ) : null}
+        </div>
+      </form>
+    </div>
   );
 }
