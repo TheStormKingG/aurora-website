@@ -32,17 +32,21 @@ try {
   await ca.auth.signInWithPassword({ email: a.email, password: "Test-passw0rd!" });
 
   const own = await ca.from("profiles").select("id").eq("id", a.id);
-  (own.data && own.data.length === 1) ? ok("reads own profile") : fail("cannot read own profile");
+  if (own.data && own.data.length === 1) ok("reads own profile");
+  else fail("cannot read own profile");
 
   const other = await ca.from("profiles").select("id").eq("id", b.id);
-  (other.data && other.data.length === 0) ? ok("cannot read other's profile") : fail("LEAK: read other's profile");
+  if (other.data && other.data.length === 0) ok("cannot read other's profile");
+  else fail("LEAK: read other's profile");
 
   const esc = await ca.from("profiles").update({ role: "staff" }).eq("id", a.id);
-  esc.error ? ok("role escalation blocked") : fail("ESCALATION: became staff");
+  if (esc.error) ok("role escalation blocked");
+  else fail("ESCALATION: became staff");
 
   const anon = userClient();
   const anonRead = await anon.from("profiles").select("id");
-  (anonRead.data && anonRead.data.length === 0) ? ok("anon reads no profiles") : fail("LEAK: anon read profiles");
+  if (anonRead.data && anonRead.data.length === 0) ok("anon reads no profiles");
+  else fail("LEAK: anon read profiles");
 } finally {
   await admin.auth.admin.deleteUser(a.id);
   await admin.auth.admin.deleteUser(b.id);

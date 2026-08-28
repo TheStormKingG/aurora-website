@@ -70,6 +70,9 @@ Done when:
 - [ ] Staff and patient routes fully separated
 - [ ] /security-review run on the auth PR
 
+**Progress (2026-08-28) — Plan 1 of 3 (patient auth foundation) built on branch `feat/patient-auth-foundation`.**
+Full PRD: `docs/superpowers/specs/2026-08-28-accounts-corporate-offering-design.md`; plan: `docs/superpowers/plans/2026-08-28-patient-auth-foundation.md`. Delivered via Supabase Auth **client-side on the static GitHub Pages deploy** (no host change): browser client + session hook + patient helpers; `profiles`/`account_consents` tables + `aurora_bookings.user_id` with RLS + a role-escalation guard (all applied to the live HM-Aurora project — which had to be **restored from an inactivity pause** first); patient register → email-verify → login → dashboard (profile, consents, own bookings, data-rights); bookings link to the signed-in account; nav shows an Account state. **Verified:** RLS proof test passes (own-rows-only, cross-user blocked, no self-escalation, anon locked out); `npm run verify` green; Playwright+axe a11y specs pass on register/login. **Deferred:** optional patient TOTP MFA (fast-follow); self-service hard-delete via Edge Function; account lockout + richer audit. **Still to come:** Plan 2 (corporate accounts + packages), Plan 3 (staff console). Run `/security-review` before merging the auth work to `main` (which triggers the live deploy).
+
 ### M6 — Payments & donations (Weeks 9–10)
 
 PCI-DSS-compliant hosted payment provider (Stripe Checkout or regional equivalent — hosted fields only, no card data touching our servers) for bill payments and donations per PDR §6.1.
