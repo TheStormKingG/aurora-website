@@ -69,7 +69,7 @@ export function PatientDashboard() {
           <input type="checkbox" role="switch" aria-label="Marketing updates"
             checked={profile?.marketing_opt_in ?? false}
             onChange={(e) => saveMarketing(e.target.checked)}
-            className="h-6 w-11 shrink-0 appearance-none rounded-full border border-silver/40 bg-navy/60 checked:border-cyan checked:bg-cyan/20" />
+            className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-full border border-silver/40 bg-navy/60 transition-colors before:absolute before:left-1 before:top-1 before:h-[1.15rem] before:w-[1.15rem] before:rounded-full before:bg-silver before:transition-transform checked:border-cyan checked:bg-cyan/20 checked:before:translate-x-5 checked:before:bg-cyan" />
         </label>
         {savedMsg ? <p role="status" className="mt-2 text-sm text-cyan">{savedMsg}</p> : null}
         <p className="mt-3 text-xs text-silver/70">
