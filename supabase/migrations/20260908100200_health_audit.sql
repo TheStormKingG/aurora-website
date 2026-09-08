@@ -38,15 +38,22 @@ language sql stable security definer set search_path = health, public, pg_temp a
   select coalesce((
     select jsonb_build_object(
       'patient_id', p.patient_id,
-      'active_version', (
-        select notice_version from health.consents c
-        where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
-        order by granted_at desc, id desc limit 1),
-      'delete_after', (
-        select delete_after from health.consents c
-        where c.patient_id = p.patient_id order by granted_at desc, id desc limit 1)
+      'active_version', act.notice_version,
+      -- A pending deletion exists only while there is no active consent:
+      -- re-consenting cancels it (purge_withdrawn skips consenting patients).
+      'delete_after', case when act.notice_version is null then wd.delete_after end
     )
-    from health.patients p where p.user_id = auth.uid()
+    from health.patients p
+    left join lateral (
+      select c.notice_version from health.consents c
+      where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
+      order by c.granted_at desc limit 1
+    ) act on true
+    left join lateral (
+      select max(c.delete_after) as delete_after from health.consents c
+      where c.patient_id = p.patient_id
+    ) wd on true
+    where p.user_id = auth.uid()
   ), '{}'::jsonb)
 $$;
 

@@ -42,11 +42,9 @@ begin
     where not exists (
       select 1 from health.consents c
       where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null)
-    and (
-      select c.delete_after from health.consents c
-      where c.patient_id = p.patient_id
-      order by c.granted_at desc, c.id desc limit 1
-    ) < now()
+    -- max(): the most recent scheduled deletion governs, and it cannot tie.
+    and (select max(c.delete_after) from health.consents c
+         where c.patient_id = p.patient_id) < now()
   loop
     perform health.purge_patient(r.patient_id);
     n := n + 1;

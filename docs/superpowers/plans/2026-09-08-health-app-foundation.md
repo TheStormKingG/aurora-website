@@ -86,7 +86,9 @@ create table health.consents (
   patient_id uuid not null references health.patients (patient_id) on delete cascade,
   notice_version text not null check (length(notice_version) between 1 and 40),
   scope jsonb not null check (jsonb_typeof(scope) = 'object' and pg_column_size(scope) < 2048),
-  granted_at timestamptz not null default now(),
+  -- clock_timestamp(), not now(): two consents in one transaction must not
+  -- tie, or "the latest consent" becomes ambiguous.
+  granted_at timestamptz not null default clock_timestamp(),
   superseded_at timestamptz,   -- closed by a re-consent on a newer notice version
   withdrawn_at timestamptz,    -- closed by the patient withdrawing
   delete_after timestamptz     -- withdrawn_at + 30 days; purge job acts on it
@@ -425,15 +427,22 @@ language sql stable security definer set search_path = health, public, pg_temp a
   select coalesce((
     select jsonb_build_object(
       'patient_id', p.patient_id,
-      'active_version', (
-        select notice_version from health.consents c
-        where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
-        order by granted_at desc, id desc limit 1),
-      'delete_after', (
-        select delete_after from health.consents c
-        where c.patient_id = p.patient_id order by granted_at desc, id desc limit 1)
+      'active_version', act.notice_version,
+      -- A pending deletion exists only while there is no active consent:
+      -- re-consenting cancels it (purge_withdrawn skips consenting patients).
+      'delete_after', case when act.notice_version is null then wd.delete_after end
     )
-    from health.patients p where p.user_id = auth.uid()
+    from health.patients p
+    left join lateral (
+      select c.notice_version from health.consents c
+      where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
+      order by c.granted_at desc limit 1
+    ) act on true
+    left join lateral (
+      select max(c.delete_after) as delete_after from health.consents c
+      where c.patient_id = p.patient_id
+    ) wd on true
+    where p.user_id = auth.uid()
   ), '{}'::jsonb)
 $$;
 
@@ -572,11 +581,9 @@ begin
     where not exists (
       select 1 from health.consents c
       where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null)
-    and (
-      select c.delete_after from health.consents c
-      where c.patient_id = p.patient_id
-      order by c.granted_at desc, c.id desc limit 1
-    ) < now()
+    -- max(): the most recent scheduled deletion governs, and it cannot tie.
+    and (select max(c.delete_after) from health.consents c
+         where c.patient_id = p.patient_id) < now()
   loop
     perform health.purge_patient(r.patient_id);
     n := n + 1;

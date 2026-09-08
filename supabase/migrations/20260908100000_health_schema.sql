@@ -24,7 +24,9 @@ create table health.consents (
   patient_id uuid not null references health.patients (patient_id) on delete cascade,
   notice_version text not null check (length(notice_version) between 1 and 40),
   scope jsonb not null check (jsonb_typeof(scope) = 'object' and pg_column_size(scope) < 2048),
-  granted_at timestamptz not null default now(),
+  -- clock_timestamp(), not now(): two consents in one transaction must not
+  -- tie, or "the latest consent" becomes ambiguous.
+  granted_at timestamptz not null default clock_timestamp(),
   superseded_at timestamptz,   -- closed by a re-consent on a newer notice version
   withdrawn_at timestamptz,    -- closed by the patient withdrawing
   delete_after timestamptz     -- withdrawn_at + 30 days; purge job acts on it
