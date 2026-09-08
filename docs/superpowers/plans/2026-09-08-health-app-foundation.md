@@ -14,6 +14,8 @@
 
 **Review findings folded in (do not regress these):** the audit IP is taken from `cf-connecting-ip`, else the *last* `x-forwarded-for` hop — a client can otherwise forge its own audit IP · `consents.notice_version`/`scope` are length-bounded · lipid ranges widened to lab-realistic bounds · `access_log` is append-only for `service_role` too (no UPDATE/DELETE/TRUNCATE) · `log_app_open`/`log_export` are rate-limited so a client cannot flood the log · `archive_old()` uses explicit column lists and returns a count · every function carries `pg_temp` in `search_path` · one summary audit row replaces per-row cascade noise · `consents.granted_at` defaults to `clock_timestamp()` and `my_status`/`purge_withdrawn` cannot tie.
 
+**Task 10/11 review fixes already applied (Tasks 12–14 build on these):** `logAppOpen(patientId)` takes the patient id and sets its session flag only after the RPC succeeds — an offline open used to mark the session done and silently lose the audit row for good · `updateSettings(patch)` no longer takes a patient id (RLS scopes it) and throws when it matches no row · the clinical queries are compile-checked against `src/lib/supabase/database.types.ts` · wrappers throw real `Error`s · `DEFAULT_SETTINGS` is frozen and copied. The shell below also treats a failed status read as an error with a retry, never as "not consented".
+
 **Deferred to Plan 2 (deliberate):** `profileEntrySchema`. Spec §11 lists it among this file's schemas and `health.profile_entries` is live, but nothing in Plan 1 writes to that table — the Record tab is a stub here and Plan 2 builds its UI. The schema ships with the screen that uses it, so it can be tested against real input rather than in the abstract.
 
 **Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails. (3) Lipid ranges are wider than spec §11's original 20–600 (total 20–1000, LDL 5–1000, HDL 5–300, triglycerides 10–5000 mg/dL) because lab panels legitimately report the extremes; spec §11 was amended to match. (4) `access_log` IP capture prefers `cf-connecting-ip`, then the last `x-forwarded-for` hop, then `x-real-ip`, so a client cannot forge its own audit IP.
@@ -2097,9 +2099,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [status, setStatus] = useState<HealthStatus | undefined>();
+  const [loadFailed, setLoadFailed] = useState(false);
   const [version, setVersion] = useState(0);
 
   const refreshStatus = useCallback(async () => {
+    setLoadFailed(false);
     setStatus(await fetchStatus());
   }, []);
 
@@ -2109,7 +2113,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session) return;
-    refreshStatus().catch(() => setStatus({ patientId: null, activeVersion: null, deleteAfter: null }));
+    // A failed read must NOT be treated as "not consented": that would send a
+    // consented patient back through the consent screen and write a second
+    // consent row. Offer a retry instead.
+    refreshStatus().catch(() => setLoadFailed(true));
   }, [session, refreshStatus]);
 
   const onConsent = pathname.startsWith("/app/consent");
@@ -2119,7 +2126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!status) return;
     if (!consented && !onConsent) router.replace("/app/consent/");
     else if (consented && onConsent) router.replace("/app/");
-    if (consented) logAppOpen().catch(() => undefined);
+    if (consented && status.patientId) logAppOpen(status.patientId).catch(() => undefined);
   }, [status, consented, onConsent, router]);
 
   const openLog = useCallback(() => undefined, []); // replaced in Task 14
@@ -2129,6 +2136,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [status, refreshStatus, openLog, version, bump],
   );
 
+  if (loadFailed) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <p className="text-silver">We couldn&rsquo;t reach your health record.</p>
+        <button type="button" onClick={() => refreshStatus().catch(() => setLoadFailed(true))}
+          className="motion-press mt-4 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan">
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (session === undefined || status === undefined) {
     return <p className="px-4 py-24 text-center text-silver">Loading…</p>;
   }
@@ -2807,7 +2825,7 @@ export function GlucoseForm({
         patient_id: patientId, kind: "glucose", recorded_at: d.recordedAt,
         glucose_mgdl: mgdl, glucose_context: d.context, entered_unit: d.unit, note: d.note || null,
       });
-      if (d.unit !== settings.glucose_unit) await updateSettings(patientId, { glucose_unit: d.unit });
+      if (d.unit !== settings.glucose_unit) await updateSettings({ glucose_unit: d.unit });
       onSaved({ title: `Blood sugar ${d.value} ${d.unit} saved`, band: glucoseBand(mgdl, d.context) });
     } catch {
       setBusy(false);
@@ -2885,7 +2903,7 @@ export function CholesterolForm({
         chol_trig_mgdl: conv(d.triglycerides, TRIGLYCERIDE_FACTOR),
         entered_unit: d.unit, note: d.note || null,
       });
-      if (d.unit !== settings.cholesterol_unit) await updateSettings(patientId, { cholesterol_unit: d.unit });
+      if (d.unit !== settings.cholesterol_unit) await updateSettings({ cholesterol_unit: d.unit });
       onSaved({ title: `Cholesterol ${d.total} ${d.unit} saved`, band: cholesterolBand(total) });
     } catch {
       setBusy(false);
@@ -3199,10 +3217,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [status, setStatus] = useState<HealthStatus | undefined>();
+  const [loadFailed, setLoadFailed] = useState(false);
   const [version, setVersion] = useState(0);
   const [log, setLog] = useState<{ open: boolean; kind: LogKind }>({ open: false, kind: "blood_pressure" });
 
   const refreshStatus = useCallback(async () => {
+    setLoadFailed(false);
     setStatus(await fetchStatus());
   }, []);
 
@@ -3212,7 +3232,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session) return;
-    refreshStatus().catch(() => setStatus({ patientId: null, activeVersion: null, deleteAfter: null }));
+    // A failed read must NOT be treated as "not consented": that would send a
+    // consented patient back through the consent screen and write a second
+    // consent row. Offer a retry instead.
+    refreshStatus().catch(() => setLoadFailed(true));
   }, [session, refreshStatus]);
 
   const onConsent = pathname.startsWith("/app/consent");
@@ -3222,7 +3245,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!status) return;
     if (!consented && !onConsent) router.replace("/app/consent/");
     else if (consented && onConsent) router.replace("/app/");
-    if (consented) logAppOpen().catch(() => undefined);
+    if (consented && status.patientId) logAppOpen(status.patientId).catch(() => undefined);
   }, [status, consented, onConsent, router]);
 
   const openLog = useCallback((kind: LogKind = "blood_pressure") => setLog({ open: true, kind }), []);
@@ -3233,6 +3256,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [status, refreshStatus, openLog, version, bump],
   );
 
+  if (loadFailed) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <p className="text-silver">We couldn&rsquo;t reach your health record.</p>
+        <button type="button" onClick={() => refreshStatus().catch(() => setLoadFailed(true))}
+          className="motion-press mt-4 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan">
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (session === undefined || status === undefined) {
     return <p className="px-4 py-24 text-center text-silver">Loading…</p>;
   }
