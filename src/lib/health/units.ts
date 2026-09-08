@@ -7,9 +7,11 @@ export const TRIGLYCERIDE_FACTOR = 88.57;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Convert a value the patient typed into the canonical mg/dL. */
+/** Convert a value the patient typed into the canonical mg/dL. mg/dL is
+ *  conventionally a whole-number unit (see formatValue below) — round it
+ *  the same way here so what's stored matches what's displayed. */
 export function toMgdl(value: number, unit: Unit, factor: number): number {
-  return unit === "mg/dL" ? round1(value) : round1(value * factor);
+  return unit === "mg/dL" ? Math.round(value) : round1(value * factor);
 }
 
 /** Convert a stored mg/dL value into the display unit. */

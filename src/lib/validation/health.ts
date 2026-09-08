@@ -5,18 +5,34 @@
  * the 31 Aug meeting named.
  */
 import { z } from "zod";
-import { CHOLESTEROL_FACTOR, GLUCOSE_FACTOR, TRIGLYCERIDE_FACTOR, toMgdl } from "@/lib/health/units";
+import { CHOLESTEROL_FACTOR, GLUCOSE_FACTOR, TRIGLYCERIDE_FACTOR, formatValue, toMgdl } from "@/lib/health/units";
 
 const MAX_BACKDATE_DAYS = 30;
+// Must stay strictly inside the database's own tolerance (readings_not_future
+// etc. all allow now() + 5 min — see supabase/migrations/20260908100000_health_schema.sql)
+// so a client clock running a little fast fails here, with a readable
+// message, rather than at the raw CHECK constraint.
+const MAX_FUTURE_MINUTES = 2;
 
-export const recordedAtSchema = z.string().refine((iso) => {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return false;
+export const recordedAtSchema = z.string().superRefine((s, ctx) => {
+  // The form always sends a full ISO timestamp (fromDatetimeLocal in
+  // format.ts converts <input type="datetime-local"> to one) — a bare
+  // "YYYY-MM-DD" parses fine via Date.parse but is read as UTC midnight,
+  // drifting a day in negative-UTC zones. Require the time component too.
+  const t = Date.parse(s);
+  if (Number.isNaN(t) || !/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    ctx.addIssue({ code: "custom", message: "Enter a valid date and time." });
+    return;
+  }
   const now = Date.now();
-  return t <= now + 5 * 60_000 && t >= now - MAX_BACKDATE_DAYS * 86_400_000;
-}, "Choose a time within the last 30 days, not in the future.");
+  if (t > now + MAX_FUTURE_MINUTES * 60_000 || t < now - MAX_BACKDATE_DAYS * 86_400_000) {
+    ctx.addIssue({ code: "custom", message: "Choose a time within the last 30 days, not in the future." });
+  }
+});
 
-const note = z.string().trim().max(300, "Keep the note under 300 characters.").optional().or(z.literal(""));
+// `note` is `string | null` (types.ts) — null is how a cleared field is
+// sent, and must not fail with zod's default "Invalid input".
+const note = z.string().trim().max(300, "Keep the note under 300 characters.").nullish();
 export const unitSchema = z.enum(["mg/dL", "mmol/L"], { error: "Choose a unit." });
 const within = (lo: number, hi: number) => (mgdl: number) => mgdl >= lo && mgdl <= hi;
 const glucoseRange = within(20, 600);
@@ -66,14 +82,24 @@ export const cholesterolReadingSchema = z
     recordedAt: recordedAtSchema,
     note,
   })
-  .refine(
-    (r) =>
-      totalRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR)) &&
-      (r.ldl === undefined || ldlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.hdl === undefined || hdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.triglycerides === undefined || trigRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))),
-    { message: "A value is outside the range the app accepts.", path: ["total"] },
-  );
+  .superRefine((r, ctx) => {
+    // One issue per offending field — not one issue always pinned to
+    // "total" — so the error lands on the box the patient needs to fix.
+    const range = (lo: number, hi: number, factor: number) =>
+      `${formatValue(lo, r.unit, factor)}–${formatValue(hi, r.unit, factor)} ${r.unit}`;
+    if (!totalRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR))) {
+      ctx.addIssue({ code: "custom", path: ["total"], message: `Total cholesterol should be ${range(20, 1000, CHOLESTEROL_FACTOR)}.` });
+    }
+    if (r.ldl !== undefined && !ldlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) {
+      ctx.addIssue({ code: "custom", path: ["ldl"], message: `LDL should be ${range(5, 1000, CHOLESTEROL_FACTOR)}.` });
+    }
+    if (r.hdl !== undefined && !hdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) {
+      ctx.addIssue({ code: "custom", path: ["hdl"], message: `HDL should be ${range(5, 300, CHOLESTEROL_FACTOR)}.` });
+    }
+    if (r.triglycerides !== undefined && !trigRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))) {
+      ctx.addIssue({ code: "custom", path: ["triglycerides"], message: `Triglycerides should be ${range(10, 5000, TRIGLYCERIDE_FACTOR)}.` });
+    }
+  });
 export type CholesterolReadingInput = z.infer<typeof cholesterolReadingSchema>;
 
 export const waterSchema = z.object({

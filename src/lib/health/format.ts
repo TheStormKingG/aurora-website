@@ -11,7 +11,9 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
   const days = Math.floor(sec / 86_400);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  // Local zone, like every other helper here — a forced UTC zone read a
+  // reading a day late for viewers west of it (e.g. Guyana, UTC-4).
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 /** "YYYY-MM-DDTHH:mm" in local time, for <input type="datetime-local">. */

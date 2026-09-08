@@ -11,7 +11,10 @@ test("relativeTime buckets", () => {
   expect(relativeTime("2026-09-08T08:00:00Z", now)).toBe("4 h ago");
   expect(relativeTime("2026-09-07T10:00:00Z", now)).toBe("Yesterday");
   expect(relativeTime("2026-09-04T10:00:00Z", now)).toBe("4 days ago");
-  expect(relativeTime("2026-08-12T10:00:00Z", now)).toBe("12 Aug");
+  // 2026-08-12T01:00Z is 11 Aug 21:00 in America/Guyana (UTC-4, set via
+  // vitest.config.ts): the fallback must format in local time, not UTC,
+  // or this reading reads a day late.
+  expect(relativeTime("2026-08-12T01:00:00Z", now)).toBe("11 Aug");
 });
 
 test("datetime-local round trip is local time", () => {

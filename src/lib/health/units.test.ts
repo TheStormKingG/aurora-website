@@ -6,8 +6,8 @@ test("mmol/L converts to mg/dL and back, rounded to one decimal", () => {
   expect(fromMgdl(99.1, "mmol/L", GLUCOSE_FACTOR)).toBe(5.5);
 });
 
-test("mg/dL passes through (rounded)", () => {
-  expect(toMgdl(104.26, "mg/dL", GLUCOSE_FACTOR)).toBe(104.3);
+test("mg/dL passes through (rounded to a whole number, matching formatValue's display)", () => {
+  expect(toMgdl(104.26, "mg/dL", GLUCOSE_FACTOR)).toBe(104);
   expect(fromMgdl(182.4, "mg/dL", CHOLESTEROL_FACTOR)).toBe(182);
 });
 
