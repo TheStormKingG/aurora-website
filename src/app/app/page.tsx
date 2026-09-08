@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { TodayScreen } from "@/components/app/TodayScreen";
 
 export const metadata: Metadata = { title: "Today" };
 
 export default function AppTodayPage() {
-  return <h1 className="text-2xl">Today</h1>;
+  return <TodayScreen />;
 }
