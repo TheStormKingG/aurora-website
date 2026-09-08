@@ -136,7 +136,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 **Helper functions** (`stable`, `security definer`, `set search_path = health, public`):
 - `health.current_patient_id()` → the caller's `patient_id` or null.
 - `health.has_active_consent(pid uuid)` → exists a `consents` row for `pid` with `withdrawn_at is null`.
-- `health.request_ip()` / `health.request_user_agent()` → read PostgREST's `request.headers` (`x-forwarded-for`, falling back to `x-real-ip`; `user-agent`).
+- `health.request_ip()` / `health.request_user_agent()` → read PostgREST's `request.headers` (`cf-connecting-ip`, else the last `x-forwarded-for` hop, else `x-real-ip` — a client cannot forge its own audit IP; `user-agent`).
 
 **RLS policies (authenticated role only; nothing for anon):**
 - `patients`: select own (`user_id = auth.uid()`); insert only via `grant_consent`.
@@ -207,7 +207,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 
 ## 11. Validation (client zod + database CHECK)
 
-`src/lib/validation/health.ts` — `bpReadingSchema`, `glucoseReadingSchema`, `cholesterolReadingSchema`, `waterSchema`, `exerciseSchema`, `profileEntrySchema`, `healthConsentSchema`. Plausibility ranges (mirrored as CHECK constraints): systolic 60–260, diastolic 30–160, pulse 25–250, glucose 20–600 mg/dL, cholesterol values 20–600 mg/dL, water 50–3,000 ml per entry, exercise 1–600 min. `recorded_at` ≤ now and ≥ now − 30 days. Unit conversion in `src/lib/health/units.ts`: glucose ×18.016, cholesterol ×38.67, triglycerides ×88.57 (mmol/L → mg/dL), rounded to 1 decimal; the entered unit is recorded.
+`src/lib/validation/health.ts` — `bpReadingSchema`, `glucoseReadingSchema`, `cholesterolReadingSchema`, `waterSchema`, `exerciseSchema`, `profileEntrySchema`, `healthConsentSchema`. Plausibility ranges (mirrored as CHECK constraints): systolic 60–260, diastolic 30–160, pulse 25–250, glucose 20–600 mg/dL, total cholesterol 20–1,000, LDL 5–1,000, HDL 5–300, triglycerides 10–5,000 mg/dL (lab panels legitimately report the extremes), water 50–3,000 ml per entry, exercise 1–600 min. `recorded_at` ≤ now and ≥ now − 30 days. Unit conversion in `src/lib/health/units.ts`: glucose ×18.016, cholesterol ×38.67, triglycerides ×88.57 (mmol/L → mg/dL), rounded to 1 decimal; the entered unit is recorded.
 
 ## 12. Data export — FHIR R4
 

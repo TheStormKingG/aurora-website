@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-health-app-design.md`. **Plan 2** (written after this plan lands) covers Trends, Record, More (withdraw/resume, access history, FHIR export, units/goals), PWA manifest + service worker + icons, the PDR/privacy-notice/PLAN.md updates, and the remaining e2e coverage.
 
-**Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails.
+**Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails. (3) Lipid ranges are wider than spec §11's original 20–600 (total 20–1000, LDL 5–1000, HDL 5–300, triglycerides 10–5000 mg/dL) because lab panels legitimately report the extremes; spec §11 was amended to match. (4) `access_log` IP capture prefers `cf-connecting-ip`, then the last `x-forwarded-for` hop, then `x-real-ip`, so a client cannot forge its own audit IP.
 
 ---
 
@@ -84,8 +84,8 @@ comment on table health.patients is
 create table health.consents (
   id uuid primary key default gen_random_uuid(),
   patient_id uuid not null references health.patients (patient_id) on delete cascade,
-  notice_version text not null,
-  scope jsonb not null,
+  notice_version text not null check (length(notice_version) between 1 and 40),
+  scope jsonb not null check (jsonb_typeof(scope) = 'object' and pg_column_size(scope) < 2048),
   granted_at timestamptz not null default now(),
   superseded_at timestamptz,   -- closed by a re-consent on a newer notice version
   withdrawn_at timestamptz,    -- closed by the patient withdrawing
@@ -93,6 +93,8 @@ create table health.consents (
 );
 create index consents_patient_active
   on health.consents (patient_id) where superseded_at is null and withdrawn_at is null;
+-- my_status() and purge_withdrawn() read the latest consent row.
+create index consents_patient_granted on health.consents (patient_id, granted_at desc, id desc);
 
 -- ── Per-patient settings ────────────────────────────────────────────
 create table health.settings (
@@ -102,6 +104,8 @@ create table health.settings (
   water_goal_ml int not null default 2000 check (water_goal_ml between 500 and 6000),
   updated_at timestamptz not null default now()
 );
+comment on table health.settings is
+  'Seeded by health.grant_consent(); clients UPDATE only — there is no INSERT policy.';
 
 -- ── Clinical readings (one row per measurement) ─────────────────────
 create table health.readings (
@@ -114,17 +118,18 @@ create table health.readings (
   pulse int check (pulse between 25 and 250),
   glucose_mgdl numeric(6,1) check (glucose_mgdl between 20 and 600),
   glucose_context text check (glucose_context in ('fasting','after_meal','random','bedtime')),
-  chol_total_mgdl numeric(6,1) check (chol_total_mgdl between 20 and 600),
-  chol_ldl_mgdl numeric(6,1) check (chol_ldl_mgdl between 20 and 600),
-  chol_hdl_mgdl numeric(6,1) check (chol_hdl_mgdl between 20 and 600),
-  chol_trig_mgdl numeric(6,1) check (chol_trig_mgdl between 20 and 600),
+  -- Lipids come from lab panels: allow the extreme values a nurse most needs to see.
+  chol_total_mgdl numeric(6,1) check (chol_total_mgdl between 20 and 1000),
+  chol_ldl_mgdl numeric(6,1) check (chol_ldl_mgdl between 5 and 1000),
+  chol_hdl_mgdl numeric(6,1) check (chol_hdl_mgdl between 5 and 300),
+  chol_trig_mgdl numeric(6,1) check (chol_trig_mgdl between 10 and 5000),
   entered_unit text check (entered_unit in ('mg/dL','mmol/L')),
   note text check (length(note) <= 300),
   created_at timestamptz not null default now(),
   constraint readings_not_future check (recorded_at <= now() + interval '5 minutes'),
   constraint readings_shape check (
     (kind = 'blood_pressure' and systolic is not null and diastolic is not null
-      and glucose_mgdl is null and glucose_context is null and chol_total_mgdl is null
+      and entered_unit is null and glucose_mgdl is null and glucose_context is null and chol_total_mgdl is null
       and chol_ldl_mgdl is null and chol_hdl_mgdl is null and chol_trig_mgdl is null)
     or (kind = 'glucose' and glucose_mgdl is not null and glucose_context is not null
       and systolic is null and diastolic is null and pulse is null and chol_total_mgdl is null
@@ -190,6 +195,20 @@ create table health.access_log (
   user_agent text
 );
 create index access_log_patient_time on health.access_log (patient_id, at desc);
+comment on table health.access_log is
+  'Append-only audit trail written by security definer functions as the table owner. Never FORCE ROW LEVEL SECURITY here: owner-run inserts have no policy to satisfy and every clinical write would fail.';
+
+-- ── updated_at maintenance ──────────────────────────────────────────
+create or replace function health.touch_updated_at() returns trigger
+language plpgsql set search_path = health, public, pg_temp as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+create trigger settings_touch before update on health.settings
+  for each row execute function health.touch_updated_at();
+create trigger profile_touch before update on health.profile_entries
+  for each row execute function health.touch_updated_at();
 
 -- ── RLS on, table grants (RLS narrows rows; anon gets nothing) ──────
 alter table health.patients enable row level security;
@@ -208,6 +227,9 @@ grant select, insert, update, delete
   to authenticated;
 grant all on all tables in schema health to service_role;
 grant usage, select on all sequences in schema health to service_role;
+-- The audit trail is append-only for everyone, the service key included;
+-- definer functions insert as the table owner and need no grant.
+revoke update, delete on health.access_log from service_role;
 ```
 
 - [ ] **Step 2: Commit**
@@ -229,12 +251,12 @@ git add supabase/migrations/20260908100000_health_schema.sql && git commit -m "f
 -- Helpers (spec §7). security definer + fixed search_path so they can
 -- read health.patients/consents regardless of the caller's policies.
 create or replace function health.current_patient_id() returns uuid
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select patient_id from health.patients where user_id = auth.uid()
 $$;
 
 create or replace function health.has_active_consent(pid uuid) returns boolean
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select exists (
     select 1 from health.consents
     where patient_id = pid and superseded_at is null and withdrawn_at is null
@@ -243,19 +265,26 @@ $$;
 
 -- Request metadata from PostgREST ("from where" in the audit log).
 create or replace function health.request_ip() returns inet
-language plpgsql stable security definer set search_path = health, public as $$
-declare h json; raw text;
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
+declare h json; raw text; hops text[];
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
   if h is null then return null; end if;
-  raw := coalesce(h->>'x-forwarded-for', h->>'x-real-ip', h->>'cf-connecting-ip');
+  -- Prefer the edge-set header a client cannot forge. x-forwarded-for is
+  -- appended to by each proxy, so only its LAST hop is trustworthy.
+  raw := h->>'cf-connecting-ip';
+  if raw is null and h->>'x-forwarded-for' is not null then
+    hops := string_to_array(h->>'x-forwarded-for', ',');
+    raw := hops[array_length(hops, 1)];
+  end if;
+  raw := coalesce(raw, h->>'x-real-ip');
   if raw is null then return null; end if;
-  return trim(split_part(raw, ',', 1))::inet;
+  return trim(raw)::inet;
 exception when others then return null;
 end $$;
 
 create or replace function health.request_user_agent() returns text
-language plpgsql stable security definer set search_path = health, public as $$
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
 declare h json;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
@@ -358,7 +387,7 @@ git add supabase/migrations/20260908100100_health_rls.sql && git commit -m "feat
 ```sql
 -- ── Audit trigger (spec §7): every write on a clinical table ────────
 create or replace function health.log_change() returns trigger
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare rec jsonb; pid uuid; rid uuid; role_name text;
 begin
   -- Bulk jobs (archive/purge) log one summary row instead of per-row noise.
@@ -392,17 +421,17 @@ create trigger settings_log after insert or update or delete on health.settings
 
 -- Status for the client guard: patient_id, active consent version, pending deletion.
 create or replace function health.my_status() returns jsonb
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select coalesce((
     select jsonb_build_object(
       'patient_id', p.patient_id,
       'active_version', (
         select notice_version from health.consents c
         where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
-        order by granted_at desc limit 1),
+        order by granted_at desc, id desc limit 1),
       'delete_after', (
         select delete_after from health.consents c
-        where c.patient_id = p.patient_id order by granted_at desc limit 1)
+        where c.patient_id = p.patient_id order by granted_at desc, id desc limit 1)
     )
     from health.patients p where p.user_id = auth.uid()
   ), '{}'::jsonb)
@@ -411,7 +440,7 @@ $$;
 -- Consent: creates the patient row on first use, supersedes any open
 -- consent, records the new one, seeds settings, logs the event.
 create or replace function health.grant_consent(notice_version text, scope jsonb) returns uuid
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare uid uuid := auth.uid(); pid uuid;
 begin
   if uid is null then raise exception 'not signed in'; end if;
@@ -431,7 +460,7 @@ begin
 end $$;
 
 create or replace function health.withdraw_consent() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
@@ -445,20 +474,29 @@ end $$;
 
 -- One row per browser session: who opened the app, when, from where.
 create or replace function health.log_app_open() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
+  -- One row per session; a misbehaving client cannot flood the log.
+  if exists (select 1 from health.access_log
+             where patient_id = pid and action = 'app_open' and at > now() - interval '1 hour') then
+    return;
+  end if;
   insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
     values (auth.uid(), 'patient', pid, 'app_open', 'app',
             health.request_ip(), health.request_user_agent());
 end $$;
 
 create or replace function health.log_export() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
+  if exists (select 1 from health.access_log
+             where patient_id = pid and action = 'export' and at > now() - interval '1 minute') then
+    return;
+  end if;
   insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
     values (auth.uid(), 'patient', pid, 'export', 'all',
             health.request_ip(), health.request_user_agent());
@@ -472,8 +510,6 @@ grant execute on function
   health.my_status(), health.grant_consent(text, jsonb),
   health.withdraw_consent(), health.log_app_open(), health.log_export()
 to authenticated;
--- The trigger fires for patient writes and service-role writes alike.
-grant execute on function health.log_change() to authenticated, service_role;
 ```
 
 - [ ] **Step 2: Commit**
@@ -511,29 +547,24 @@ grant all on health.readings_archive, health.water_intake_archive, health.exerci
 -- No grants to authenticated: the app never reads archives.
 
 -- ── Purge (used by delete-now and by the 30-day job) ────────────────
-create or replace function health.purge_patient(pid uuid, reason text) returns void
-language plpgsql security definer set search_path = health, public as $$
+create or replace function health.purge_patient(pid uuid) returns void
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 begin
-  perform set_config('health.suppress_log', 'on', true);
-  delete from health.readings_archive where patient_id = pid;
-  delete from health.water_intake_archive where patient_id = pid;
-  delete from health.exercise_sessions_archive where patient_id = pid;
-  delete from health.patients where patient_id = pid;   -- cascades to every live table
-  insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
-    values (auth.uid(), case when auth.uid() is null then 'system' else 'patient' end,
-            pid, reason, 'patients', health.request_ip(), health.request_user_agent());
+  -- Deleting the patient row cascades to every live table; the before-delete
+  -- trigger below removes archive rows and writes the single 'purge' audit row.
+  delete from health.patients where patient_id = pid;
 end $$;
 
 create or replace function health.delete_my_health_data() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then raise exception 'no health record'; end if;
-  perform health.purge_patient(pid, 'purge');
+  perform health.purge_patient(pid);
 end $$;
 
 create or replace function health.purge_withdrawn() returns int
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare r record; n int := 0;
 begin
   for r in
@@ -544,66 +575,92 @@ begin
     and (
       select c.delete_after from health.consents c
       where c.patient_id = p.patient_id
-      order by c.granted_at desc limit 1
+      order by c.granted_at desc, c.id desc limit 1
     ) < now()
   loop
-    perform health.purge_patient(r.patient_id, 'purge');
+    perform health.purge_patient(r.patient_id);
     n := n + 1;
   end loop;
   return n;
 end $$;
 
 -- ── 12-month archive ────────────────────────────────────────────────
-create or replace function health.archive_old() returns void
-language plpgsql security definer set search_path = health, public as $$
+create or replace function health.archive_old() returns int
+language plpgsql security definer set search_path = health, public, pg_temp as $$
+declare n int := 0; m int;
 begin
   perform set_config('health.suppress_log', 'on', true);
 
   with moved as (
     delete from health.readings where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.readings_archive select moved.*, now() from moved returning patient_id
+    insert into health.readings_archive
+      (id, patient_id, kind, recorded_at, systolic, diastolic, pulse, glucose_mgdl, glucose_context,
+       chol_total_mgdl, chol_ldl_mgdl, chol_hdl_mgdl, chol_trig_mgdl, entered_unit, note, created_at, archived_at)
+    select id, patient_id, kind, recorded_at, systolic, diastolic, pulse, glucose_mgdl, glucose_context,
+           chol_total_mgdl, chol_ldl_mgdl, chol_hdl_mgdl, chol_trig_mgdl, entered_unit, note, created_at, now()
+    from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'readings' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'readings' from ins;
+  select count(*) into m from ins;
+  n := n + m;
 
   with moved as (
     delete from health.water_intake where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.water_intake_archive select moved.*, now() from moved returning patient_id
+    insert into health.water_intake_archive (id, patient_id, ml, recorded_at, created_at, archived_at)
+    select id, patient_id, ml, recorded_at, created_at, now() from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'water_intake' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'water_intake' from ins;
+  select count(*) into m from ins;
+  n := n + m;
 
   with moved as (
     delete from health.exercise_sessions where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.exercise_sessions_archive select moved.*, now() from moved returning patient_id
+    insert into health.exercise_sessions_archive
+      (id, patient_id, activity, minutes, intensity, note, recorded_at, created_at, archived_at)
+    select id, patient_id, activity, minutes, intensity, note, recorded_at, created_at, now()
+    from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'exercise_sessions' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'exercise_sessions' from ins;
+  select count(*) into m from ins;
+  n := n + m;
+
+  return n;
 end $$;
 
--- Archive rows have no FK (they must survive nothing — a deleted account
--- takes its archives with it). Cascade them from the patient row.
+-- Archive rows have no FK, so they are removed here when the patient row goes
+-- (delete-now, the 30-day purge, or an account deletion cascading from auth.users).
+-- One summary audit row replaces the per-row noise the cascade would otherwise log.
 create or replace function health.purge_archives_for_patient() returns trigger
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 begin
+  perform set_config('health.suppress_log', 'on', true);
   delete from health.readings_archive where patient_id = old.patient_id;
   delete from health.water_intake_archive where patient_id = old.patient_id;
   delete from health.exercise_sessions_archive where patient_id = old.patient_id;
+  insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
+    values (auth.uid(), case when auth.uid() is null then 'system' else 'patient' end,
+            old.patient_id, 'purge', 'patients', health.request_ip(), health.request_user_agent());
   return old;
 end $$;
 create trigger patients_purge_archives before delete on health.patients
   for each row execute function health.purge_archives_for_patient();
 
 revoke execute on function
-  health.purge_patient(uuid, text), health.delete_my_health_data(),
+  health.purge_patient(uuid), health.delete_my_health_data(),
   health.purge_withdrawn(), health.archive_old(), health.purge_archives_for_patient()
 from public, anon;
 grant execute on function health.delete_my_health_data() to authenticated;
--- The RLS proof script and the dashboard run the jobs with the service key.
-grant execute on all functions in schema health to service_role;
+-- The RLS proof script and the dashboard run the two jobs with the service key.
+grant execute on function health.archive_old(), health.purge_withdrawn() to service_role;
 ```
 
 - [ ] **Step 2: Write the schedules as their own migration** — `supabase/migrations/20260908100400_health_cron.sql` (a pg_cron refusal must not roll back the archive tables):
@@ -611,8 +668,11 @@ grant execute on all functions in schema health to service_role;
 ```sql
 -- ── Schedules (spec §8) — own migration so a pg_cron refusal cannot roll
 -- back the archive tables and purge functions in 20260908100300.
+-- pg_cron runs in UTC: 03:00 UTC is 23:00 GYT the previous evening.
 create extension if not exists pg_cron;
-grant usage on schema cron to postgres;
+do $$ begin
+  execute 'grant usage on schema cron to postgres';
+exception when insufficient_privilege then null; end $$;
 select cron.schedule('health-archive-old', '0 3 1 * *', $$select health.archive_old()$$);
 select cron.schedule('health-purge-withdrawn', '15 3 * * *', $$select health.purge_withdrawn()$$);
 ```
@@ -1360,7 +1420,7 @@ test("glucose: converts mmol/L before the range check", () => {
 
 test("cholesterol: total required, optional parts range-checked", () => {
   expect(cholesterolReadingSchema.safeParse({ total: 182, unit: "mg/dL", recordedAt: now() }).success).toBe(true);
-  expect(cholesterolReadingSchema.safeParse({ total: 182, ldl: 900, unit: "mg/dL", recordedAt: now() }).success).toBe(false);
+  expect(cholesterolReadingSchema.safeParse({ total: 182, ldl: 2000, unit: "mg/dL", recordedAt: now() }).success).toBe(false);
   expect(cholesterolReadingSchema.safeParse({ unit: "mg/dL", recordedAt: now() }).success).toBe(false);
 });
 
@@ -1412,7 +1472,12 @@ export const recordedAtSchema = z.string().refine((iso) => {
 
 const note = z.string().trim().max(300, "Keep the note under 300 characters.").optional().or(z.literal(""));
 export const unitSchema = z.enum(["mg/dL", "mmol/L"], { error: "Choose a unit." });
-const inMgdlRange = (mgdl: number) => mgdl >= 20 && mgdl <= 600;
+const within = (lo: number, hi: number) => (mgdl: number) => mgdl >= lo && mgdl <= hi;
+const glucoseRange = within(20, 600);
+const totalRange = within(20, 1000);
+const ldlRange = within(5, 1000);
+const hdlRange = within(5, 300);
+const trigRange = within(10, 5000);
 
 export const bpReadingSchema = z
   .object({
@@ -1439,7 +1504,7 @@ export const glucoseReadingSchema = z
     recordedAt: recordedAtSchema,
     note,
   })
-  .refine((r) => inMgdlRange(toMgdl(r.value, r.unit, GLUCOSE_FACTOR)), {
+  .refine((r) => glucoseRange(toMgdl(r.value, r.unit, GLUCOSE_FACTOR)), {
     message: "That reading is outside the range the app accepts (20–600 mg/dL).",
     path: ["value"],
   });
@@ -1457,11 +1522,11 @@ export const cholesterolReadingSchema = z
   })
   .refine(
     (r) =>
-      inMgdlRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR)) &&
-      (r.ldl === undefined || inMgdlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.hdl === undefined || inMgdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.triglycerides === undefined || inMgdlRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))),
-    { message: "A value is outside the range the app accepts (20–600 mg/dL).", path: ["total"] },
+      totalRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR)) &&
+      (r.ldl === undefined || ldlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) &&
+      (r.hdl === undefined || hdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) &&
+      (r.triglycerides === undefined || trigRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))),
+    { message: "A value is outside the range the app accepts.", path: ["total"] },
   );
 export type CholesterolReadingInput = z.infer<typeof cholesterolReadingSchema>;
 

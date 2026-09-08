@@ -1,12 +1,12 @@
 -- Helpers (spec §7). security definer + fixed search_path so they can
 -- read health.patients/consents regardless of the caller's policies.
 create or replace function health.current_patient_id() returns uuid
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select patient_id from health.patients where user_id = auth.uid()
 $$;
 
 create or replace function health.has_active_consent(pid uuid) returns boolean
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select exists (
     select 1 from health.consents
     where patient_id = pid and superseded_at is null and withdrawn_at is null
@@ -15,19 +15,26 @@ $$;
 
 -- Request metadata from PostgREST ("from where" in the audit log).
 create or replace function health.request_ip() returns inet
-language plpgsql stable security definer set search_path = health, public as $$
-declare h json; raw text;
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
+declare h json; raw text; hops text[];
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
   if h is null then return null; end if;
-  raw := coalesce(h->>'x-forwarded-for', h->>'x-real-ip', h->>'cf-connecting-ip');
+  -- Prefer the edge-set header a client cannot forge. x-forwarded-for is
+  -- appended to by each proxy, so only its LAST hop is trustworthy.
+  raw := h->>'cf-connecting-ip';
+  if raw is null and h->>'x-forwarded-for' is not null then
+    hops := string_to_array(h->>'x-forwarded-for', ',');
+    raw := hops[array_length(hops, 1)];
+  end if;
+  raw := coalesce(raw, h->>'x-real-ip');
   if raw is null then return null; end if;
-  return trim(split_part(raw, ',', 1))::inet;
+  return trim(raw)::inet;
 exception when others then return null;
 end $$;
 
 create or replace function health.request_user_agent() returns text
-language plpgsql stable security definer set search_path = health, public as $$
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
 declare h json;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
