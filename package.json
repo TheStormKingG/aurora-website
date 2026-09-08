@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:rls": "node --env-file=.env.local tests/rls/profiles.mjs",
+    "test:rls": "node --env-file=.env.local tests/rls/profiles.mjs && node --env-file=.env.local tests/rls/health.mjs",
     "test:e2e": "playwright test",
     "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run build"
   },

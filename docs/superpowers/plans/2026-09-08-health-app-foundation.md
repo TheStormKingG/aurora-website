@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-health-app-design.md`. **Plan 2** (written after this plan lands) covers Trends, Record, More (withdraw/resume, access history, FHIR export, units/goals), PWA manifest + service worker + icons, the PDR/privacy-notice/PLAN.md updates, and the remaining e2e coverage.
 
+**Applied 2026-09-08.** Tasks 0–6 are done: six migrations live on `gmvrkzumvwhrkqzqwcnu` (a fifth splits the pg_cron schedules out so an extension refusal cannot roll back the archive tables; a sixth tightens two grants), `health` is exposed to PostgREST, and `npm run test:rls` passes 37 checks. Before pushing, the whole set plus a 29-step functional exercise was dry-run inside a rolled-back transaction — that run caught a defect two static reviews had missed (see §Review findings below). Live state: 11 tables, 21 policies, 16 functions, 8 triggers, 2 cron jobs, RLS on every table, zero anon grants.
+
+**Review findings folded in (do not regress these):** the audit IP is taken from `cf-connecting-ip`, else the *last* `x-forwarded-for` hop — a client can otherwise forge its own audit IP · `consents.notice_version`/`scope` are length-bounded · lipid ranges widened to lab-realistic bounds · `access_log` is append-only for `service_role` too (no UPDATE/DELETE/TRUNCATE) · `log_app_open`/`log_export` are rate-limited so a client cannot flood the log · `archive_old()` uses explicit column lists and returns a count · every function carries `pg_temp` in `search_path` · one summary audit row replaces per-row cascade noise · `consents.granted_at` defaults to `clock_timestamp()` and `my_status`/`purge_withdrawn` cannot tie.
+
 **Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails. (3) Lipid ranges are wider than spec §11's original 20–600 (total 20–1000, LDL 5–1000, HDL 5–300, triglycerides 10–5000 mg/dL) because lab panels legitimately report the extremes; spec §11 was amended to match. (4) `access_log` IP capture prefers `cf-connecting-ip`, then the last `x-forwarded-for` hop, then `x-real-ip`, so a client cannot forge its own audit IP.
 
 ---
@@ -29,21 +33,21 @@
 
 **Files:** none
 
-- [ ] **Step 1: Create the branch**
+- [x] **Step 1: Create the branch**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && git checkout main && git pull --ff-only && git checkout -b feat/health-app
 ```
 Expected: `Switched to a new branch 'feat/health-app'`
 
-- [ ] **Step 2: Confirm the toolchain and the linked project**
+- [x] **Step 2: Confirm the toolchain and the linked project**
 
 ```bash
 supabase --version && cat supabase/.temp/project-ref && node --version && npm run verify
 ```
 Expected: `2.75.0`, `gmvrkzumvwhrkqzqwcnu`, Node ≥ 20, and verify ends with the Next build summary (no errors).
 
-- [ ] **Step 3: Confirm the Supabase project is awake**
+- [x] **Step 3: Confirm the Supabase project is awake**
 
 ```bash
 TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d); curl -s -H "Authorization: Bearer $TOK" https://api.supabase.com/v1/projects/gmvrkzumvwhrkqzqwcnu | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
@@ -57,7 +61,7 @@ Expected: `ACTIVE_HEALTHY`. If `INACTIVE`, run `curl -s -X POST -H "Authorizatio
 **Files:**
 - Create: `supabase/migrations/20260908100000_health_schema.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- Aurora Digital Health Platform v0 (spec §4, §6).
@@ -234,7 +238,7 @@ grant usage, select on all sequences in schema health to service_role;
 revoke update, delete on health.access_log from service_role;
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100000_health_schema.sql && git commit -m "feat(health): schema, tables, checks and grants"
@@ -247,7 +251,7 @@ git add supabase/migrations/20260908100000_health_schema.sql && git commit -m "f
 **Files:**
 - Create: `supabase/migrations/20260908100100_health_rls.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- Helpers (spec §7). security definer + fixed search_path so they can
@@ -371,7 +375,7 @@ create policy "access_log: read own" on health.access_log
   for select to authenticated using (patient_id = health.current_patient_id());
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100100_health_rls.sql && git commit -m "feat(health): helper functions and RLS policies"
@@ -384,7 +388,7 @@ git add supabase/migrations/20260908100100_health_rls.sql && git commit -m "feat
 **Files:**
 - Create: `supabase/migrations/20260908100200_health_audit.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- ── Audit trigger (spec §7): every write on a clinical table ────────
@@ -521,7 +525,7 @@ grant execute on function
 to authenticated;
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100200_health_audit.sql && git commit -m "feat(health): audit trigger, consent and logging RPCs"
@@ -534,7 +538,7 @@ git add supabase/migrations/20260908100200_health_audit.sql && git commit -m "fe
 **Files:**
 - Create: `supabase/migrations/20260908100300_health_retention.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- ── Archive tables (spec §8): same shape + archived_at; no client policies ──
@@ -670,7 +674,7 @@ grant execute on function health.delete_my_health_data() to authenticated;
 grant execute on function health.archive_old(), health.purge_withdrawn() to service_role;
 ```
 
-- [ ] **Step 2: Write the schedules as their own migration** — `supabase/migrations/20260908100400_health_cron.sql` (a pg_cron refusal must not roll back the archive tables):
+- [x] **Step 2: Write the schedules as their own migration** — `supabase/migrations/20260908100400_health_cron.sql` (a pg_cron refusal must not roll back the archive tables):
 
 ```sql
 -- ── Schedules (spec §8) — own migration so a pg_cron refusal cannot roll
@@ -684,7 +688,7 @@ select cron.schedule('health-archive-old', '0 3 1 * *', $$select health.archive_
 select cron.schedule('health-purge-withdrawn', '15 3 * * *', $$select health.purge_withdrawn()$$);
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260908100300_health_retention.sql supabase/migrations/20260908100400_health_cron.sql && git commit -m "feat(health): archive tables, purge and pg_cron jobs"
@@ -696,21 +700,21 @@ git add supabase/migrations/20260908100300_health_retention.sql supabase/migrati
 
 **Files:** none (live project configuration)
 
-- [ ] **Step 1: Push the four migrations**
+- [x] **Step 1: Push the four migrations**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && source .env.secrets && supabase db push -p "$SUPABASE_DB_PASSWORD"
 ```
 Expected: the five `20260908…` migrations listed, then `Finished supabase db push.` If `create extension pg_cron` is refused, enable pg_cron in the Supabase Dashboard (Database → Extensions → pg_cron → enable), then re-run the push.
 
-- [ ] **Step 2: Expose `health` to PostgREST**
+- [x] **Step 2: Expose `health` to PostgREST**
 
 ```bash
 TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d); curl -s -X PATCH -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" https://api.supabase.com/v1/projects/gmvrkzumvwhrkqzqwcnu/postgrest -d '{"db_schema":"public,graphql_public,health"}'
 ```
 Expected: JSON echo whose `db_schema` is `public,graphql_public,health`.
 
-- [ ] **Step 3: Prove anon is locked out and the jobs exist**
+- [x] **Step 3: Prove anon is locked out and the jobs exist**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && set -a && source .env.local && set +a && curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/readings?select=id" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Accept-Profile: health"; echo
@@ -722,7 +726,7 @@ python3 "/private/tmp/claude-501/-Users-stefangravesande-Documents-Projects-Rout
 ```
 Expected: two rows, `health-archive-old` `0 3 1 * *` and `health-purge-withdrawn` `15 3 * * *`.
 
-- [ ] **Step 4: (Only if the scratchpad helper is missing) recreate it**
+- [x] **Step 4: (Only if the scratchpad helper is missing) recreate it**
 
 ```python
 #!/usr/bin/env python3
@@ -752,7 +756,7 @@ except urllib.error.HTTPError as e:
 - Create: `tests/rls/health.mjs`
 - Modify: `package.json` (scripts.test:rls)
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```js
 // Proves the health schema's security posture (spec §15): own-rows only,
@@ -779,8 +783,11 @@ async function makeUser(tag) {
   if (error) throw error;
   return { id: data.user.id, email };
 }
-async function signedIn(user) {
-  const c = createClient(url, anonKey, { auth: { persistSession: false } });
+async function signedIn(user, headers) {
+  const c = createClient(url, anonKey, {
+    auth: { persistSession: false },
+    ...(headers ? { global: { headers } } : {}),
+  });
   const { error } = await c.auth.signInWithPassword({ email: user.email, password: "Test-passw0rd!" });
   if (error) throw error;
   return c;
@@ -789,12 +796,12 @@ const bp = (patient_id, extra = {}) => ({
   patient_id, kind: "blood_pressure", recorded_at: new Date().toISOString(),
   systolic: 128, diastolic: 82, pulse: 72, ...extra,
 });
+const H = (c) => c.schema("health");
 
 const a = await makeUser("a");
 const b = await makeUser("b");
 try {
   const ca = await signedIn(a);
-  const H = (c) => c.schema("health");
 
   // 1. Before consent: reads are empty, writes are refused.
   const pre = await H(ca).from("readings").select("id");
@@ -811,7 +818,7 @@ try {
   const pidA = grant.data;
   const st = await H(ca).rpc("my_status");
   if (st.data && st.data.patient_id === pidA && st.data.active_version === "test-1") ok("my_status reports the active consent");
-  else fail("my_status wrong: " + JSON.stringify(st));
+  else fail("my_status wrong: " + JSON.stringify(st.data));
 
   // 3. Own rows: insert, read, update.
   const ins = await H(ca).from("readings").insert(bp(pidA)).select("id").single();
@@ -836,15 +843,23 @@ try {
   await H(cb).from("readings").update({ note: "tampered" }).eq("id", ins.data.id);
   const check = await H(ca).from("readings").select("note").eq("id", ins.data.id).single();
   if (check.data && check.data.note === "after breakfast") ok("B cannot update A's reading"); else fail("LEAK: B updated A's reading");
+  const bDel = await H(cb).from("readings").delete().eq("id", ins.data.id);
+  const stillThere = await H(ca).from("readings").select("id").eq("id", ins.data.id);
+  if (stillThere.data && stillThere.data.length === 1) ok("B cannot delete A's reading");
+  else fail("LEAK: B deleted A's reading " + JSON.stringify(bDel.error));
   const bOwn = await H(cb).from("readings").insert(bp(pidB));
   if (!bOwn.error) ok("B inserts own reading"); else fail("B insert failed: " + bOwn.error.message);
   const aCount = await H(ca).from("readings").select("id");
   if (aCount.data && aCount.data.length === 1) ok("A still sees exactly own row"); else fail("A sees " + aCount.data?.length);
+  const bStatus = await H(cb).rpc("my_status");
+  if (bStatus.data && bStatus.data.patient_id === pidB) ok("my_status is per-caller"); else fail("my_status leaked across users");
 
-  // 6. Anonymous key: nothing.
+  // 6. Anonymous key: nothing, on tables or RPCs.
   const anon = createClient(url, anonKey, { auth: { persistSession: false } });
   const anonRead = await H(anon).from("readings").select("id");
-  if (anonRead.error || anonRead.data.length === 0) ok("anon cannot read health"); else fail("LEAK: anon read health rows");
+  if (anonRead.error) ok("anon cannot read health"); else fail("LEAK: anon read health rows");
+  const anonRpc = await H(anon).rpc("grant_consent", { notice_version: "x", scope: {} });
+  if (anonRpc.error) ok("anon cannot call health RPCs"); else fail("LEAK: anon called grant_consent");
 
   // 7. Audit log: written by the system, readable by A, untouchable by A.
   await H(ca).rpc("log_app_open");
@@ -854,14 +869,27 @@ try {
   const missing = expectLog.filter((e) => !actions.includes(e));
   if (missing.length === 0) ok("access_log holds consent, settings, insert, update, app_open");
   else fail("access_log missing " + missing.join(", ") + " (have " + actions.join(", ") + ")");
+  if (actions.filter((x) => x === "app_open:app").length === 1) ok("app_open logged once per session");
+  else fail("app_open logged " + actions.filter((x) => x === "app_open:app").length + " times");
   const logIns = await H(ca).from("access_log").insert({ actor_role: "patient", patient_id: pidA, action: "read" });
   if (logIns.error) ok("A cannot write access_log"); else fail("TAMPER: A inserted an access_log row");
   const before = log.data.length;
   await H(ca).from("access_log").delete().eq("patient_id", pidA);
-  const after = await H(ca).from("access_log").select("id");
+  await H(ca).from("access_log").update({ action: "read" }).eq("patient_id", pidA);
+  const after = await H(ca).from("access_log").select("id, action");
   if (after.data && after.data.length === before) ok("A cannot delete access_log rows"); else fail("TAMPER: A deleted log rows");
+  const bLog = await H(cb).from("access_log").select("patient_id");
+  if (bLog.data && !bLog.data.some((r) => r.patient_id === pidA)) ok("B cannot read A's access_log");
+  else fail("LEAK: B read A's access_log");
 
-  // 8. Archive tables are unreachable by patients; archive job moves old rows.
+  // 7b. The audit IP is edge-set, not client-set (spec §7).
+  const forged = await signedIn(a, { "x-forwarded-for": "203.0.113.7" });
+  await H(forged).from("readings").insert(bp(pidA, { systolic: 121, diastolic: 79 }));
+  const ips = await H(admin).from("access_log").select("ip").eq("patient_id", pidA).eq("action", "insert");
+  if (!(ips.data ?? []).some((r) => r.ip === "203.0.113.7")) ok("client cannot forge its audit IP");
+  else fail("TAMPER: client-supplied x-forwarded-for was recorded as the audit IP");
+
+  // 8. Archive tables are unreachable by patients; the archive job moves old rows.
   const arch = await H(ca).from("readings_archive").select("id");
   if (arch.error) ok("A cannot read readings_archive"); else fail("LEAK: A read the archive");
   const old = new Date(); old.setMonth(old.getMonth() - 13);
@@ -870,25 +898,47 @@ try {
   await H(admin).rpc("archive_old");
   const live = await H(ca).from("readings").select("id");
   const archived = await H(admin).from("readings_archive").select("id").eq("patient_id", pidA);
-  if (live.data.length === 1 && archived.data.length === 1) ok("archive_old moved the 13-month-old reading");
+  if (live.data.length === 2 && archived.data.length === 1) ok("archive_old moved the 13-month-old reading");
   else fail(`archive_old: live=${live.data?.length} archived=${archived.data?.length}`);
 
   // 9. Withdrawal blocks new writes and schedules deletion.
   await H(ca).rpc("withdraw_consent");
   const postWd = await H(ca).from("readings").insert(bp(pidA));
   if (postWd.error) ok("withdrawal blocks inserts"); else fail("LEAK: inserted after withdrawal");
+  const postWdUpd = await H(ca).from("readings").update({ note: "later" }).eq("id", ins.data.id).select("note");
+  if (postWdUpd.error || (postWdUpd.data ?? []).length === 0) ok("withdrawal blocks updates");
+  else fail("LEAK: updated after withdrawal");
   const st2 = await H(ca).rpc("my_status");
   if (st2.data && st2.data.active_version === null && st2.data.delete_after) ok("my_status shows pending deletion");
   else fail("my_status after withdrawal wrong: " + JSON.stringify(st2.data));
+
+  // 9b. Re-consent cancels the deletion (regression: a tie on granted_at once
+  //     made my_status keep reporting the withdrawn row's delete_after).
+  await H(ca).rpc("grant_consent", { notice_version: "test-2", scope: { readings: true } });
+  const st3 = await H(ca).rpc("my_status");
+  if (st3.data && st3.data.active_version === "test-2" && st3.data.delete_after === null)
+    ok("re-consent clears the pending deletion");
+  else fail("re-consent left a pending deletion: " + JSON.stringify(st3.data));
+  const purged = await H(admin).rpc("purge_withdrawn");
+  const survives = await H(admin).from("patients").select("patient_id").eq("patient_id", pidA);
+  if (survives.data.length === 1) ok("purge_withdrawn skips a re-consented patient");
+  else fail("PURGED a consenting patient (purge_withdrawn returned " + purged.data + ")");
+  const history = await H(ca).from("consents").select("notice_version");
+  if (history.data && history.data.length === 2) ok("consent history is append-only");
+  else fail("consent history has " + history.data?.length + " rows, expected 2");
 
   // 10. Delete-now purges everything but keeps the audit trail.
   await H(ca).rpc("delete_my_health_data");
   const gone = await H(admin).from("patients").select("patient_id").eq("patient_id", pidA);
   const goneArch = await H(admin).from("readings_archive").select("id").eq("patient_id", pidA);
+  const goneLive = await H(admin).from("readings").select("id").eq("patient_id", pidA);
   const trail = await H(admin).from("access_log").select("action").eq("patient_id", pidA);
-  if (gone.data.length === 0 && goneArch.data.length === 0) ok("purge removed patient, live and archive rows");
-  else fail("purge incomplete");
+  if (gone.data.length === 0 && goneArch.data.length === 0 && goneLive.data.length === 0)
+    ok("purge removed patient, live and archive rows");
+  else fail(`purge incomplete: patients=${gone.data?.length} archive=${goneArch.data?.length} live=${goneLive.data?.length}`);
   if (trail.data.some((r) => r.action === "purge")) ok("access_log keeps the trail incl. purge"); else fail("purge not logged");
+  const bIntact = await H(admin).from("patients").select("patient_id").eq("patient_id", pidB);
+  if (bIntact.data.length === 1) ok("B's record survived A's deletion"); else fail("A's purge took B's record");
 } finally {
   await admin.auth.admin.deleteUser(a.id);
   await admin.auth.admin.deleteUser(b.id);
@@ -896,7 +946,7 @@ try {
 if (process.exitCode) console.error("HEALTH RLS CHECKS FAILED"); else console.log("ALL HEALTH RLS CHECKS PASSED");
 ```
 
-- [ ] **Step 2: Wire the script into `test:rls`**
+- [x] **Step 2: Wire the script into `test:rls`**
 
 In `package.json`, change the `test:rls` line to:
 
@@ -904,14 +954,14 @@ In `package.json`, change the `test:rls` line to:
     "test:rls": "node --env-file=.env.local tests/rls/profiles.mjs && node --env-file=.env.local tests/rls/health.mjs",
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && npm run test:rls
 ```
 Expected: `ALL RLS CHECKS PASSED` then every `✓` line of the health script and `ALL HEALTH RLS CHECKS PASSED`. If a check fails, fix the migration with a new migration file (never edit an applied one), push, re-run.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/rls/health.mjs package.json && git commit -m "test(health): RLS proof for the health schema"
