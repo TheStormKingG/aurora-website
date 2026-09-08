@@ -188,14 +188,14 @@ const paths: Record<IconName, React.ReactNode> = {
   clipboard: (
     <>
       <rect x="5.5" y="4.5" width="13" height="16" rx="2" />
-      <path d="M9 4.5v-1h6v1M9 10.5h6M9 14h6" />
+      <path d="M9 4.5v-1h6v1M9 9h6M9 12.5h6M9 16h6" />
     </>
   ),
   more: (
     <>
-      <circle cx="6" cy="12" r="1.2" />
-      <circle cx="12" cy="12" r="1.2" />
-      <circle cx="18" cy="12" r="1.2" />
+      <circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none" />
     </>
   ),
   drop: (
