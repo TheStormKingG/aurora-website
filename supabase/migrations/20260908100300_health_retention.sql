@@ -47,9 +47,11 @@ begin
     where not exists (
       select 1 from health.consents c
       where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null)
-    and exists (
-      select 1 from health.consents c
-      where c.patient_id = p.patient_id and c.delete_after is not null and c.delete_after < now())
+    and (
+      select c.delete_after from health.consents c
+      where c.patient_id = p.patient_id
+      order by c.granted_at desc limit 1
+    ) < now()
   loop
     perform health.purge_patient(r.patient_id, 'purge');
     n := n + 1;
@@ -108,9 +110,3 @@ from public, anon;
 grant execute on function health.delete_my_health_data() to authenticated;
 -- The RLS proof script and the dashboard run the jobs with the service key.
 grant execute on all functions in schema health to service_role;
-
--- ── Schedules ───────────────────────────────────────────────────────
-create extension if not exists pg_cron;
-grant usage on schema cron to postgres;
-select cron.schedule('health-archive-old', '0 3 1 * *', $$select health.archive_old()$$);
-select cron.schedule('health-purge-withdrawn', '15 3 * * *', $$select health.purge_withdrawn()$$);

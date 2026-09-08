@@ -243,7 +243,7 @@ $$;
 
 -- Request metadata from PostgREST ("from where" in the audit log).
 create or replace function health.request_ip() returns inet
-language plpgsql stable as $$
+language plpgsql stable security definer set search_path = health, public as $$
 declare h json; raw text;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
@@ -255,7 +255,7 @@ exception when others then return null;
 end $$;
 
 create or replace function health.request_user_agent() returns text
-language plpgsql stable as $$
+language plpgsql stable security definer set search_path = health, public as $$
 declare h json;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
@@ -419,9 +419,8 @@ begin
   select patient_id into pid from health.patients where user_id = uid;
   update health.consents set superseded_at = now()
     where patient_id = pid and superseded_at is null and withdrawn_at is null;
-  -- Re-consenting after a withdrawal cancels the pending deletion.
-  update health.consents set delete_after = null
-    where patient_id = pid and delete_after is not null;
+  -- Re-consenting after a withdrawal cancels the pending deletion because
+  -- purge_withdrawn() keys off the LATEST consent row; history is never rewritten.
   insert into health.consents (patient_id, notice_version, scope)
     values (pid, grant_consent.notice_version, grant_consent.scope);
   insert into health.settings (patient_id) values (pid) on conflict (patient_id) do nothing;
@@ -542,9 +541,11 @@ begin
     where not exists (
       select 1 from health.consents c
       where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null)
-    and exists (
-      select 1 from health.consents c
-      where c.patient_id = p.patient_id and c.delete_after is not null and c.delete_after < now())
+    and (
+      select c.delete_after from health.consents c
+      where c.patient_id = p.patient_id
+      order by c.granted_at desc limit 1
+    ) < now()
   loop
     perform health.purge_patient(r.patient_id, 'purge');
     n := n + 1;
@@ -603,18 +604,23 @@ from public, anon;
 grant execute on function health.delete_my_health_data() to authenticated;
 -- The RLS proof script and the dashboard run the jobs with the service key.
 grant execute on all functions in schema health to service_role;
+```
 
--- ── Schedules ───────────────────────────────────────────────────────
+- [ ] **Step 2: Write the schedules as their own migration** — `supabase/migrations/20260908100400_health_cron.sql` (a pg_cron refusal must not roll back the archive tables):
+
+```sql
+-- ── Schedules (spec §8) — own migration so a pg_cron refusal cannot roll
+-- back the archive tables and purge functions in 20260908100300.
 create extension if not exists pg_cron;
 grant usage on schema cron to postgres;
 select cron.schedule('health-archive-old', '0 3 1 * *', $$select health.archive_old()$$);
 select cron.schedule('health-purge-withdrawn', '15 3 * * *', $$select health.purge_withdrawn()$$);
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add supabase/migrations/20260908100300_health_retention.sql && git commit -m "feat(health): archive tables, purge and pg_cron jobs"
+git add supabase/migrations/20260908100300_health_retention.sql supabase/migrations/20260908100400_health_cron.sql && git commit -m "feat(health): archive tables, purge and pg_cron jobs"
 ```
 
 ---
@@ -628,7 +634,7 @@ git add supabase/migrations/20260908100300_health_retention.sql && git commit -m
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && source .env.secrets && supabase db push -p "$SUPABASE_DB_PASSWORD"
 ```
-Expected: the four `20260908…` migrations listed, then `Finished supabase db push.` If `create extension pg_cron` is refused, enable pg_cron in the Supabase Dashboard (Database → Extensions → pg_cron → enable), then re-run the push.
+Expected: the five `20260908…` migrations listed, then `Finished supabase db push.` If `create extension pg_cron` is refused, enable pg_cron in the Supabase Dashboard (Database → Extensions → pg_cron → enable), then re-run the push.
 
 - [ ] **Step 2: Expose `health` to PostgREST**
 

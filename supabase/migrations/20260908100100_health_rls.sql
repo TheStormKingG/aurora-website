@@ -15,7 +15,7 @@ $$;
 
 -- Request metadata from PostgREST ("from where" in the audit log).
 create or replace function health.request_ip() returns inet
-language plpgsql stable as $$
+language plpgsql stable security definer set search_path = health, public as $$
 declare h json; raw text;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
@@ -27,7 +27,7 @@ exception when others then return null;
 end $$;
 
 create or replace function health.request_user_agent() returns text
-language plpgsql stable as $$
+language plpgsql stable security definer set search_path = health, public as $$
 declare h json;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;

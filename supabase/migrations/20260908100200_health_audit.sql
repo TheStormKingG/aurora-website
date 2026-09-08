@@ -61,9 +61,8 @@ begin
   select patient_id into pid from health.patients where user_id = uid;
   update health.consents set superseded_at = now()
     where patient_id = pid and superseded_at is null and withdrawn_at is null;
-  -- Re-consenting after a withdrawal cancels the pending deletion.
-  update health.consents set delete_after = null
-    where patient_id = pid and delete_after is not null;
+  -- Re-consenting after a withdrawal cancels the pending deletion because
+  -- purge_withdrawn() keys off the LATEST consent row; history is never rewritten.
   insert into health.consents (patient_id, notice_version, scope)
     values (pid, grant_consent.notice_version, grant_consent.scope);
   insert into health.settings (patient_id) values (pid) on conflict (patient_id) do nothing;
