@@ -28,7 +28,13 @@ export type IconName =
   | "globe"
   | "eye"
   | "download"
-  | "home";
+  | "home"
+  | "chart"
+  | "plus"
+  | "clipboard"
+  | "more"
+  | "drop"
+  | "x";
 
 type IconProps = SVGProps<SVGSVGElement> & {
   name: IconName;
@@ -166,6 +172,40 @@ const paths: Record<IconName, React.ReactNode> = {
   home: (
     <>
       <path d="m4 11 8-7 8 7v9h-5.5v-5h-5v5H4v-9Z" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M3.5 19.5h17" />
+      <path d="m4.5 15.5 4.5-5 3.5 3 3-4 3.5 2.5" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M12 5v14M5 12h14" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect x="5.5" y="4.5" width="13" height="16" rx="2" />
+      <path d="M9 4.5v-1h6v1M9 10.5h6M9 14h6" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="6" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="18" cy="12" r="1.2" />
+    </>
+  ),
+  drop: (
+    <>
+      <path d="M12 3.5s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="m6 6 12 12M18 6 6 18" />
     </>
   ),
 };
