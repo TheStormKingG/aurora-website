@@ -251,7 +251,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 
 **Documents to update in the same change:** `docs/PDR.md` §11.1 (add: "Until a dedicated EHR exists, the HM-Aurora Supabase `health` schema is the Aurora Digital Health Platform v0 and the single source of truth for clinical data; the website's `public` schema stores none. The FHIR boundary is kept through the export format and the schema separation."); the Privacy Centre notice (new "Health data in the Aurora app" section, version bump to 1.1); `docs/PLAN.md` (new milestone M9 — Aurora health app, slice A).
 
-**Follow-ups (not slice A):** column-level encryption (pgsodium) for readings and record entries; offline logging queue; patient MFA; staff console (slice B); reminders (would need a new consent scope).
+**Follow-ups (not slice A):** column-level encryption (pgsodium) for readings and record entries; offline logging queue; patient MFA; staff console (slice B); reminders (would need a new consent scope); **automatic EXECUTE revocation for new `health` functions** — every function is explicitly revoked from `public, anon` today and a security review confirmed no gap, but that pattern is manual: `alter default privileges` demonstrably did not cover a function created later in the same migration, so the next `security definer` function added here could ship callable by anyone unless someone remembers the revoke. An event trigger on `ddl_command_end`, or an assertion in the RLS proof script, would make it structural.
 
 ## 14. Pages, routes and files
 
