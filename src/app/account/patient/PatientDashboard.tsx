@@ -53,6 +53,15 @@ export function PatientDashboard() {
         </Button>
       </div>
 
+      <Card glow>
+        <h2 className="text-xl">Aurora health app</h2>
+        <p className="mt-2 text-sm text-silver">
+          Log your blood pressure, blood sugar and cholesterol at home, track water and exercise,
+          and keep your health record up to date.
+        </p>
+        <Button href="/app" size="sm" className="mt-4">Open the Aurora app</Button>
+      </Card>
+
       <Card>
         <h2 className="text-xl">Profile</h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
