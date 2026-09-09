@@ -62,7 +62,7 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
             type="button"
             disabled={busy}
             onClick={() => add(n)}
-            className="motion-press rounded-full border border-cyan/60 px-3 py-1.5 text-sm font-semibold text-cyan hover:border-cyan disabled:opacity-50"
+            className="motion-press inline-flex min-h-11 items-center rounded-full border border-cyan/60 px-4 text-sm font-semibold text-cyan hover:border-cyan disabled:opacity-50"
           >
             +{n} ml
           </button>

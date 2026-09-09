@@ -47,6 +47,9 @@ export function LogSheet({
 
   function handleSaved(info: SavedInfo) {
     setSaved(info);
+    // A form may have changed the display unit (glucose/cholesterol). Without
+    // this, "Log another" would re-open with the previous unit selected.
+    fetchSettings().then(setSettings).catch(() => undefined);
     onSaved();
   }
 
@@ -63,7 +66,7 @@ export function LogSheet({
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-silver/30 md:hidden" aria-hidden="true" />
         <div className="flex items-center justify-between">
           <h2 id="log-title" className="text-xl">Log a reading</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-silver hover:text-starlight">
+          <button type="button" onClick={onClose} aria-label="Close" className="-mr-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-silver hover:text-starlight">
             <Icon name="x" className="h-5 w-5" />
           </button>
         </div>
@@ -93,7 +96,7 @@ export function LogSheet({
                   type="button"
                   aria-pressed={kind === k.kind}
                   onClick={() => setKind(k.kind)}
-                  className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                  className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${
                     kind === k.kind ? "border-cyan bg-cyan text-navy" : "border-silver/30 text-silver hover:border-silver/60"
                   }`}
                 >

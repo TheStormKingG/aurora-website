@@ -34,7 +34,7 @@ export function WaterForm({ patientId, onSaved }: { patientId: string; onSaved: 
       <div role="group" aria-label="Quick amounts" className="flex flex-wrap gap-2">
         {[250, 500, 750].map((n) => (
           <button key={n} type="button" onClick={() => setMl(String(n))} aria-pressed={ml === String(n)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${ml === String(n) ? "border-cyan bg-cyan text-navy" : "border-silver/30 text-silver hover:border-silver/60"}`}>
+            className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${ml === String(n) ? "border-cyan bg-cyan text-navy" : "border-silver/30 text-silver hover:border-silver/60"}`}>
             {n} ml
           </button>
         ))}
