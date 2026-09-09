@@ -84,7 +84,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const heading = contentRef.current?.querySelector<HTMLElement>("h1");
     if (!heading) return;
     heading.tabIndex = -1; // focusable without joining the tab order
-    heading.focus();
+    // preventScroll + an explicit scroll to top: letting focus() do the
+    // scrolling parks the heading underneath the sticky top bar when the
+    // page is barely taller than the viewport. Top of page is also what a
+    // tab change should show.
+    heading.focus({ preventScroll: true });
+    window.scrollTo({ top: 0 });
   }, [pathname]);
 
   const openLog = useCallback((kind: LogKind = "blood_pressure") => setLog({ open: true, kind }), []);
