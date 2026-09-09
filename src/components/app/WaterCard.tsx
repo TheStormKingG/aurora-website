@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { Icon } from "@/components/icons";
 
 export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd: (ml: number) => Promise<void> }) {
@@ -8,8 +8,6 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [announcement, setAnnouncement] = useState("");
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []); // M8
   const pct = Math.min(100, Math.round((ml / goal) * 100));
 
   async function add(amount: number) {
@@ -20,15 +18,17 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
       // I4: `ml` here is still the pre-add total (onAdd's optimistic
       // update lands in the parent, not this closure), so the new total
       // is exactly ml + amount.
-      if (mountedRef.current) {
-        setAnnouncement(
-          `Added ${amount.toLocaleString("en-GB")} ml. ${(ml + amount).toLocaleString("en-GB")} of ${goal.toLocaleString("en-GB")} ml today.`,
-        );
-      }
+      setAnnouncement(
+        `Added ${amount.toLocaleString("en-GB")} ml. ${(ml + amount).toLocaleString("en-GB")} of ${goal.toLocaleString("en-GB")} ml today.`,
+      );
     } catch {
-      if (mountedRef.current) setError("Couldn't save. Check your connection.");
+      setError("Couldn't save. Check your connection.");
     } finally {
-      if (mountedRef.current) setBusy(false); // M8: guard a finally that can run after unmount
+      // No mounted-ref guard here: a setState after unmount is a silent
+      // no-op in React 19, and the guard version left the ref false after
+      // StrictMode's remount, so `busy` never cleared and the card became
+      // single-use.
+      setBusy(false);
     }
   }
 
