@@ -147,7 +147,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 
 **Audit writers:**
 - Trigger `health.log_change()` (after insert / update / delete on readings, water_intake, exercise_sessions, profile_entries, settings) inserts an `access_log` row: actor `auth.uid()`, role `patient`, action = the operation, resource = table name, resource_id, ip, user agent.
-- RPC `health.log_app_open()` — the app shell calls it once per browser session (sessionStorage flag). This is the "who, when, from where" record for the session (D8).
+- RPC `health.log_app_open()` — the app shell calls it once per browser session (a per-patient sessionStorage flag, set only after the write lands, so an offline open retries rather than losing the row). This is the "who, when, from where" record for the session (D8). The database additionally refuses a second `app_open` for the same patient within two minutes — a backstop against a broken client flooding the log, narrow enough that a genuine second session or a second device still records.
 - RPCs `grant_consent`, `withdraw_consent`, `delete_my_health_data`, `log_export()` each write their own row.
 
 **Patient-facing view:** More → "Who has accessed my data" lists `access_log` rows newest first: date/time, who ("You" for own actions; staff name and role in slice B), what, device (user agent, shortened) and IP.
