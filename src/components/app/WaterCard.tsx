@@ -1,23 +1,34 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 
 export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd: (ml: number) => Promise<void> }) {
   const headingId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [announcement, setAnnouncement] = useState("");
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []); // M8
   const pct = Math.min(100, Math.round((ml / goal) * 100));
 
   async function add(amount: number) {
     setBusy(true);
     setError(undefined);
     try {
-      await onAdd(amount);
+      await onAdd(amount); // W1: onAdd applies the change optimistically
+      // I4: `ml` here is still the pre-add total (onAdd's optimistic
+      // update lands in the parent, not this closure), so the new total
+      // is exactly ml + amount.
+      if (mountedRef.current) {
+        setAnnouncement(
+          `Added ${amount.toLocaleString("en-GB")} ml. ${(ml + amount).toLocaleString("en-GB")} of ${goal.toLocaleString("en-GB")} ml today.`,
+        );
+      }
     } catch {
-      setError("Couldn't save. Check your connection.");
+      if (mountedRef.current) setError("Couldn't save. Check your connection.");
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false); // M8: guard a finally that can run after unmount
     }
   }
 
@@ -38,7 +49,8 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
         aria-label="Water towards today's goal"
         aria-valuemin={0}
         aria-valuemax={goal}
-        aria-valuenow={Math.min(ml, goal)}
+        aria-valuenow={ml}
+        aria-valuetext={`${ml.toLocaleString("en-GB")} of ${goal.toLocaleString("en-GB")} ml`}
         className="mt-3 h-2 overflow-hidden rounded-full bg-navy"
       >
         <div className="h-full rounded-full bg-cyan transition-[width] duration-500" style={{ width: `${pct}%` }} />
@@ -57,6 +69,9 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
         ))}
         {error ? <p role="alert" className="text-sm text-[#ff9db0]">{error}</p> : null}
       </div>
+      {/* I4: visually-hidden live region — the bar/number change above is
+          otherwise silent (WCAG 4.1.3). */}
+      <p role="status" className="sr-only">{announcement}</p>
     </section>
   );
 }

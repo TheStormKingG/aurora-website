@@ -12,24 +12,37 @@ const tabs: Tab[] = [
   { href: "/app/more/", label: "More", icon: "more" },
 ];
 
+// M7: compare whole path segments, not a raw string prefix — "/app/record"
+// as a plain prefix would also match a future "/app/record-archive/".
+const segments = (path: string) => path.split("/").filter(Boolean);
+
 /** Bottom tabs on phones, a left rail from md up (spec §9.1). */
 export function TabBar({ onLog }: { onLog: () => void }) {
   const pathname = usePathname();
-  const active = (t: Tab) =>
-    t.exact ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(t.href.replace(/\/$/, ""));
-  const item = (t: Tab) => (
-    <Link
-      key={t.href}
-      href={t.href}
-      aria-current={active(t) ? "page" : undefined}
-      className={`flex min-w-[4rem] flex-col items-center gap-1 px-2 py-2 text-xs font-medium ${
-        active(t) ? "text-cyan" : "text-silver hover:text-starlight"
-      }`}
-    >
-      <Icon name={t.icon} className="h-6 w-6" />
-      {t.label}
-    </Link>
-  );
+  const active = (t: Tab) => {
+    if (t.exact) return pathname === "/app" || pathname === "/app/";
+    const tabSegs = segments(t.href);
+    const pathSegs = segments(pathname);
+    return tabSegs.every((seg, i) => pathSegs[i] === seg);
+  };
+  const item = (t: Tab) => {
+    const isActive = active(t);
+    return (
+      <Link
+        key={t.href}
+        href={t.href}
+        aria-current={isActive ? "page" : undefined}
+        className={`flex min-w-[4rem] flex-col items-center gap-1 px-2 py-2 text-xs font-medium ${
+          isActive ? "text-cyan" : "text-silver hover:text-starlight"
+        }`}
+      >
+        <Icon name={t.icon} className="h-6 w-6" />
+        {t.label}
+        {/* M6: colour alone marked the active tab — back it with a dot. */}
+        <span aria-hidden="true" className={`h-1 w-1 rounded-full ${isActive ? "bg-cyan" : "bg-transparent"}`} />
+      </Link>
+    );
+  };
   return (
     <nav
       aria-label="App sections"

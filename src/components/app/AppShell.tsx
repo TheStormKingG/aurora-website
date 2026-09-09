@@ -93,12 +93,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loadFailed) {
     return (
-      <div className="mx-auto max-w-md px-4 py-24 text-center">
-        <p className="text-silver">We couldn&rsquo;t reach your health record.</p>
-        <button type="button" onClick={() => refreshStatus().catch(() => setLoadFailed(true))}
-          className="motion-press mt-4 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan">
-          Try again
-        </button>
+      // M3: this renders outside AppProvider (status never loaded), so it
+      // had no top bar or tab bar and the patient couldn't navigate away
+      // or sign out. TopBar reads session as a prop (I2), not context, so
+      // it works here too.
+      <div className="min-h-screen">
+        <TopBar session={session} />
+        <div className="mx-auto max-w-md px-4 py-24 text-center">
+          <p className="text-silver">We couldn&rsquo;t reach your health record.</p>
+          <button type="button" onClick={() => refreshStatus().catch(() => setLoadFailed(true))}
+            className="motion-press mt-4 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan">
+            Try again
+          </button>
+        </div>
       </div>
     );
   }

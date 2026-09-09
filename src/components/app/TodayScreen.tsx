@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { insertWater, loadToday, type TodayData } from "@/lib/health/client";
 import { firstName, greeting, relativeTime } from "@/lib/health/format";
 import { bpBand, cholesterolBand, glucoseBand, DISCLAIMER } from "@/lib/health/ranges";
@@ -15,7 +15,7 @@ const contextLabel: Record<GlucoseContext, string> = {
 };
 
 export function TodayScreen() {
-  const { status, version, openLog, bump, session } = useApp(); // I2: shared session
+  const { status, version, openLog, session } = useApp(); // I2: shared session
   const [data, setData] = useState<TodayData | null>(null);
   const [error, setError] = useState<string>();
   const [retryTick, setRetryTick] = useState(0); // C2: bumped by "Try again" to force a refetch
@@ -33,13 +33,30 @@ export function TodayScreen() {
   }, [version, retryTick]);
 
   async function addWater(ml: number) {
-    if (!status.patientId) return;
-    await insertWater({ patient_id: status.patientId, ml, recorded_at: new Date().toISOString() });
-    bump();
+    // W2: a missing patient id must not be a silent no-op — throw so
+    // WaterCard's own catch surfaces it instead of quietly clearing busy.
+    if (!status.patientId) throw new Error("Missing patient id — can't save water.");
+    // W1: update locally first (§9.2 optimistic updates) instead of
+    // awaiting the insert and then bump()-ing a full six-query refetch —
+    // the round trip still happens, just in the background, and rolls
+    // back on failure rather than blocking the bar on it.
+    setData((d) => (d ? { ...d, waterMl: d.waterMl + ml } : d));
+    try {
+      await insertWater({ patient_id: status.patientId, ml, recorded_at: new Date().toISOString() });
+    } catch (err) {
+      setData((d) => (d ? { ...d, waterMl: d.waterMl - ml } : d));
+      throw err;
+    }
   }
 
   const meta = (session?.user.user_metadata ?? {}) as { full_name?: string; name?: string };
   const name = firstName(meta.full_name ?? meta.name ?? "");
+  // M9: computed once per mount instead of on every render. Still won't
+  // roll over at midnight without a remount/refetch — unchanged, on purpose.
+  const today = useMemo(
+    () => new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }),
+    [],
+  );
   const bp = data?.latest.blood_pressure ?? null;
   const gl = data?.latest.glucose ?? null;
   const ch = data?.latest.cholesterol ?? null;
@@ -48,9 +65,7 @@ export function TodayScreen() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl">{greeting()}{name ? `, ${name}` : ""}</h1>
-        <p className="text-sm text-silver">
-          {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-        </p>
+        <p className="text-sm text-silver">{today}</p>
       </div>
       {error ? (
         <div role="alert" className="rounded-2xl border border-line-dark bg-indigo p-4">
@@ -64,7 +79,7 @@ export function TodayScreen() {
           </button>
         </div>
       ) : null}
-      {data === null && !error ? <p className="text-silver">Loading…</p> : null}
+      {data === null && !error ? <p role="status" className="text-silver">Loading…</p> : null}
       {data ? (
         <>
           <MetricCard
