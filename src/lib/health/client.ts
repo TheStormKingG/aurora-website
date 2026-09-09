@@ -6,6 +6,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import { HEALTH_NOTICE_SCOPE, HEALTH_NOTICE_VERSION } from "@/content/health-notice";
 import { startOfToday, startOfWeek } from "./format";
 import type { ExerciseInsert, Reading, ReadingInsert, ReadingKind, Settings, WaterInsert } from "./types";
+import type { ExportData, ExportExercise, ExportProfileEntry, ExportWater } from "./fhir-export";
+import { sinceISO } from "./stats";
 
 /**
  * Data access for the `health` schema (spec §4). Every call runs under
@@ -162,4 +164,133 @@ export async function loadToday(): Promise<TodayData> {
     waterMl: water.reduce((s, r) => s + r.ml, 0),
     exercise: { minutes: sessions.reduce((s, r) => s + r.minutes, 0), sessions: sessions.length },
   };
+}
+
+// ── Trends ──────────────────────────────────────────────────────────
+export async function fetchReadings(kind: ReadingKind, days: number): Promise<Reading[]> {
+  const { data, error } = await health()
+    .from("readings").select(READING_COLUMNS)
+    .eq("kind", kind).gte("recorded_at", sinceISO(days))
+    .order("recorded_at", { ascending: false });
+  if (error) throw asError(error);
+  return (data ?? []) as Reading[];
+}
+
+export async function fetchWaterSince(days: number): Promise<ExportWater[]> {
+  const { data, error } = await health()
+    .from("water_intake").select("id, ml, recorded_at")
+    .gte("recorded_at", sinceISO(days)).order("recorded_at", { ascending: false });
+  if (error) throw asError(error);
+  return (data ?? []) as ExportWater[];
+}
+
+export async function fetchExerciseSince(days: number): Promise<ExportExercise[]> {
+  const { data, error } = await health()
+    .from("exercise_sessions").select("id, activity, minutes, intensity, note, recorded_at")
+    .gte("recorded_at", sinceISO(days)).order("recorded_at", { ascending: false });
+  if (error) throw asError(error);
+  return (data ?? []) as ExportExercise[];
+}
+
+/** Deleting is RLS-scoped to the caller's own rows and the audit trigger
+ *  records it, so no extra guard is needed here (spec §7). */
+export async function deleteRow(
+  table: "readings" | "water_intake" | "exercise_sessions" | "profile_entries",
+  id: string,
+): Promise<void> {
+  const { error } = await health().from(table).delete().eq("id", id);
+  if (error) throw asError(error);
+}
+
+// ── Record (the nursing checklist) ──────────────────────────────────
+const PROFILE_COLUMNS = "id, category, label, detail, occurred_on, is_current";
+
+export async function fetchProfileEntries(): Promise<ExportProfileEntry[]> {
+  const { data, error } = await health()
+    .from("profile_entries").select(PROFILE_COLUMNS)
+    .order("created_at", { ascending: true });
+  if (error) throw asError(error);
+  return (data ?? []) as ExportProfileEntry[];
+}
+
+export type ProfileEntryWrite = {
+  category: ExportProfileEntry["category"];
+  label: string;
+  detail: string | null;
+  occurred_on: string | null;
+  is_current: boolean;
+};
+
+export async function insertProfileEntry(patientId: string, row: ProfileEntryWrite): Promise<void> {
+  const { error } = await health().from("profile_entries").insert({ patient_id: patientId, ...row });
+  if (error) throw asError(error);
+}
+
+export async function updateProfileEntry(id: string, patch: Partial<ProfileEntryWrite>): Promise<void> {
+  const { error, count } = await health()
+    .from("profile_entries").update(patch, { count: "exact" }).eq("id", id);
+  if (error) throw asError(error);
+  if (count === 0) throw new Error("That entry no longer exists.");
+}
+
+// ── More ────────────────────────────────────────────────────────────
+export type AccessEvent = {
+  id: number; at: string; actor_role: string; action: string;
+  resource: string | null; ip: string | null; user_agent: string | null;
+};
+
+/** The patient's own access history (spec §7, PDR §11.3). RLS returns
+ *  only their rows; there is no way to ask for anyone else's. */
+export async function fetchAccessLog(limit = 200): Promise<AccessEvent[]> {
+  const { data, error } = await health()
+    .from("access_log").select("id, at, actor_role, action, resource, ip, user_agent")
+    .order("at", { ascending: false }).limit(limit);
+  if (error) throw asError(error);
+  return (data ?? []) as AccessEvent[];
+}
+
+export async function withdrawConsent(): Promise<void> {
+  const { error } = await health().rpc("withdraw_consent");
+  if (error) throw asError(error);
+}
+
+export async function deleteMyHealthData(): Promise<void> {
+  const { error } = await health().rpc("delete_my_health_data");
+  if (error) throw asError(error);
+}
+
+export async function logExport(): Promise<void> {
+  const { error } = await health().rpc("log_export");
+  if (error) throw asError(error);
+}
+
+/** Everything the FHIR bundle needs, in one round of parallel queries.
+ *  Deliberately unbounded by date: an export is the patient's whole live
+ *  record (archived rows are a rights request, spec §8). */
+export async function loadForExport(fullName: string | null, patientId: string): Promise<ExportData> {
+  const h = health();
+  const [rd, wa, ex, pe] = await Promise.all([
+    h.from("readings").select(READING_COLUMNS).order("recorded_at", { ascending: true }),
+    h.from("water_intake").select("id, ml, recorded_at").order("recorded_at", { ascending: true }),
+    h.from("exercise_sessions").select("id, activity, minutes, intensity, note, recorded_at").order("recorded_at", { ascending: true }),
+    h.from("profile_entries").select(PROFILE_COLUMNS).order("created_at", { ascending: true }),
+  ]);
+  for (const r of [rd, wa, ex, pe]) if (r.error) throw asError(r.error);
+  return {
+    patientId,
+    fullName,
+    readings: (rd.data ?? []) as Reading[],
+    water: (wa.data ?? []) as ExportWater[],
+    exercise: (ex.data ?? []) as ExportExercise[],
+    profileEntries: (pe.data ?? []) as ExportProfileEntry[],
+  };
+}
+
+/** The signed-in patient's display name, from public.profiles — the only
+ *  identifier that touches the export, and it never enters the health
+ *  schema (spec §4 pseudonymisation). */
+export async function fetchDisplayName(): Promise<string | null> {
+  const { data, error } = await getSupabase().from("profiles").select("full_name").maybeSingle();
+  if (error) throw asError(error);
+  return (data as { full_name: string | null } | null)?.full_name ?? null;
 }
