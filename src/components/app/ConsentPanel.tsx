@@ -16,9 +16,8 @@ export function ConsentPanel() {
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const [announcement, setAnnouncement] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
-  const firstRender = useRef(true);
+  const prevState = useRef<string | null>(null);
 
   const withdrawn = status.activeVersion === null;
   const deleteAfter = status.deleteAfter
@@ -30,15 +29,19 @@ export function ConsentPanel() {
   // <body>. Move focus to whatever took its place (WCAG 2.4.3), but leave the
   // first render alone so opening More doesn't steal focus.
   useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
-    if (pending || withdrawn) panelRef.current?.focus();
+    const state = withdrawn ? "withdrawn" : (pending ?? "idle");
+    // Only on a real transition. A "first render" flag was not enough: the
+    // shell shows a loading state while it reads consent status, so this
+    // mounts twice and the second mount looked like a change — stealing
+    // focus on page load and fighting the shell's own focus-to-heading.
+    if (prevState.current !== null && prevState.current !== state) panelRef.current?.focus();
+    prevState.current = state;
   }, [pending, withdrawn]);
 
-  async function run(action: () => Promise<void>, after: "refresh" | "leave", said: string) {
+  async function run(action: () => Promise<void>, after: "refresh" | "leave") {
     setBusy(true); setError(undefined);
     try {
       await action();
-      setAnnouncement(said);
       if (after === "leave") { router.replace("/account/patient/"); return; }
       await refreshStatus();
       setPending(null);
@@ -51,19 +54,14 @@ export function ConsentPanel() {
 
   return (
     <>
-      {/* Always in the DOM so a screen reader announces the text when it
-          arrives — a region inserted at the same moment as its content is
-          announced unreliably. */}
-      <p role="status" className="sr-only">{announcement}</p>
-
       {withdrawn ? (
-        <div ref={panelRef} tabIndex={-1} className="mt-4 rounded-xl border border-[#f5c451]/40 bg-[#f5c451]/10 p-4">
+        <div ref={panelRef} tabIndex={-1} role="status" className="mt-4 rounded-xl border border-[#f5c451]/40 bg-[#f5c451]/10 p-4">
           <p className="text-sm text-starlight">
             Tracking is stopped. Your health data {deleteAfter ? `will be deleted on ${deleteAfter}` : "will be deleted shortly"} unless you resume before then.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button type="button" disabled={busy}
-              onClick={() => run(async () => { await grantConsent(); }, "refresh", "Tracking resumed. Nothing will be deleted.")}
+              onClick={() => run(async () => { await grantConsent(); }, "refresh")}
               className="motion-press inline-flex min-h-11 items-center rounded-full bg-cyan px-4 text-sm font-semibold text-navy hover:bg-blue disabled:opacity-50">
               {busy ? "Resuming…" : "Resume tracking"}
             </button>
@@ -89,8 +87,8 @@ export function ConsentPanel() {
             <button type="button" disabled={busy}
               onClick={() =>
                 pending === "delete"
-                  ? run(deleteMyHealthData, "leave", "Your health data has been deleted.")
-                  : run(withdrawConsent, "refresh", "Tracking stopped.")
+                  ? run(deleteMyHealthData, "leave")
+                  : run(withdrawConsent, "refresh")
               }
               className="motion-press inline-flex min-h-11 items-center rounded-full border border-[#ff9db0] px-4 text-sm font-semibold text-[#ff9db0] hover:bg-[#ff9db0]/10 disabled:opacity-50">
               {busy ? "Working…" : pending === "delete" ? "Yes, delete everything" : "Yes, stop tracking"}
@@ -103,7 +101,8 @@ export function ConsentPanel() {
           {error ? <p role="alert" className="mt-2 text-sm text-[#ff9db0]">{error}</p> : null}
         </div>
       ) : (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div ref={panelRef} tabIndex={-1} role="status" className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="sr-only">Health tracking is on.</span>
           <button type="button" onClick={() => setPending("withdraw")}
             className="inline-flex min-h-11 items-center rounded-full border border-silver/40 px-4 text-sm font-semibold text-starlight hover:border-silver">
             Stop tracking
