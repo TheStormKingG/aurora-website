@@ -1,7 +1,9 @@
 /**
  * FHIR R4 export (spec §12, PDR §11.5 portability). One Bundle of type
- * "collection": a contained Patient carrying the name, then one resource
- * per stored row. LOINC codes are clinical identifiers — a wrong code
+ * "collection": a Patient entry carrying the name, then one resource per
+ * stored row — an entry, not `contained`, because `contained` resources
+ * are inline and un-referenceable, and `Patient/{id}` must resolve to a
+ * sibling entry. LOINC codes are clinical identifiers — a wrong code
  * mislabels the measurement in whatever system imports this, so they are
  * asserted one by one in the unit test.
  */
@@ -34,14 +36,16 @@ const contextLabel: Record<GlucoseContext, string> = {
   fasting: "fasting", after_meal: "after a meal", random: "random", bedtime: "bedtime",
 };
 
-export function buildBundle(data: ExportData): Bundle {
+export function buildBundle(data: ExportData, now: Date = new Date()): Bundle {
   const subject = { reference: `Patient/${data.patientId}` };
   const entry: { resource: Resource }[] = [
     {
       resource: {
         resourceType: "Patient",
         id: data.patientId,
-        name: data.fullName ? [{ text: data.fullName }] : [],
+        // FHIR JSON forbids empty arrays — an absent name must omit the
+        // property, not send `name: []` (S1-3).
+        ...(data.fullName ? { name: [{ text: data.fullName }] } : {}),
       },
     },
   ];
@@ -71,9 +75,15 @@ export function buildBundle(data: ExportData): Bundle {
         code: loinc("2339-0", "Glucose [Mass/volume] in Blood"),
         effectiveDateTime: r.recorded_at,
         valueQuantity: { value: Number(r.glucose_mgdl), unit: "mg/dL", system: "http://unitsofmeasure.org", code: "mg/dL" },
+        // readings_shape guarantees glucose_context is set for kind='glucose'
+        // rows from the database, but Reading's own type does not encode
+        // that per-kind invariant — keep the "Taken." fallback so a
+        // hand-built ExportData (e.g. a test fixture) can never produce an
+        // empty note.text, which FHIR treats as invalid content just like
+        // the empty `name` in S1-3.
         note: [{ text: [ctx ? `Taken ${ctx}.` : null, r.note].filter(Boolean).join(" ") || "Taken." }],
       });
-    } else {
+    } else if (r.kind === "cholesterol") {
       const lipids: [number | null, string, string][] = [
         [r.chol_total_mgdl, "2093-3", "Cholesterol [Mass/volume] in Serum or Plasma"],
         [r.chol_ldl_mgdl, "2089-1", "LDL Cholesterol"],
@@ -89,11 +99,17 @@ export function buildBundle(data: ExportData): Bundle {
           ...(r.note ? { note: [{ text: r.note }] } : {}),
         });
       }
+    } else {
+      // Exhaustiveness check: a fourth ReadingKind must fail to compile
+      // here rather than silently falling into the cholesterol branch.
+      const exhaustive: never = r.kind;
+      throw new Error(`Unhandled reading kind: ${exhaustive}`);
     }
   }
 
   for (const w of data.water) {
     obs({
+      id: w.id,
       code: { text: "Water intake" },
       effectiveDateTime: w.recorded_at,
       valueQuantity: { value: w.ml, unit: "mL", system: "http://unitsofmeasure.org", code: "mL" },
@@ -102,6 +118,7 @@ export function buildBundle(data: ExportData): Bundle {
 
   for (const e of data.exercise) {
     obs({
+      id: e.id,
       code: { text: "Exercise session" },
       effectiveDateTime: e.recorded_at,
       valueQuantity: { value: e.minutes, unit: "min", system: "http://unitsofmeasure.org", code: "min" },
@@ -114,29 +131,33 @@ export function buildBundle(data: ExportData): Bundle {
   // worse than none (spec §12).
   const byCategory: Record<ExportProfileEntry["category"], (p: ExportProfileEntry) => Resource> = {
     condition: (p) => ({
-      resourceType: "Condition", subject, code: { text: p.label },
+      resourceType: "Condition", id: p.id, subject, code: { text: p.label },
       clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: p.is_current ? "active" : "resolved" }] },
       ...(p.occurred_on ? { onsetDateTime: p.occurred_on } : {}),
       ...(p.detail ? { note: [{ text: p.detail }] } : {}),
     }),
     surgery: (p) => ({
-      resourceType: "Procedure", subject, status: "completed", code: { text: p.label },
+      resourceType: "Procedure", id: p.id, subject, status: "completed", code: { text: p.label },
       ...(p.occurred_on ? { performedDateTime: p.occurred_on } : {}),
       ...(p.detail ? { note: [{ text: p.detail }] } : {}),
     }),
     medication: (p) => ({
-      resourceType: "MedicationStatement", subject, status: p.is_current ? "active" : "stopped",
+      resourceType: "MedicationStatement", id: p.id, subject, status: p.is_current ? "active" : "stopped",
       medicationCodeableConcept: { text: p.label },
       ...(p.occurred_on ? { effectiveDateTime: p.occurred_on } : {}),
       ...(p.detail ? { note: [{ text: p.detail }] } : {}),
     }),
+    // AllergyIntolerance has no `subject` element in R4 — only `patient`
+    // (1..1) (S1-1).
     allergy: (p) => ({
-      resourceType: "AllergyIntolerance", patient: subject, subject, code: { text: p.label },
+      resourceType: "AllergyIntolerance", id: p.id, patient: subject, code: { text: p.label },
       clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", code: p.is_current ? "active" : "inactive" }] },
       ...(p.detail ? { note: [{ text: p.detail }] } : {}),
     }),
+    // FamilyMemberHistory has no `subject` element in R4 either — `patient`
+    // (1..1) is the correct (and only) patient reference (S1-2).
     family_history: (p) => ({
-      resourceType: "FamilyMemberHistory", subject, status: "completed",
+      resourceType: "FamilyMemberHistory", id: p.id, status: "completed",
       patient: subject, relationship: { text: "Family" },
       condition: [{ code: { text: p.label } }],
       ...(p.detail ? { note: [{ text: p.detail }] } : {}),
@@ -144,10 +165,15 @@ export function buildBundle(data: ExportData): Bundle {
   };
   for (const p of data.profileEntries) entry.push({ resource: byCategory[p.category](p) });
 
-  return { resourceType: "Bundle", type: "collection", timestamp: new Date().toISOString(), entry };
+  return { resourceType: "Bundle", type: "collection", timestamp: now.toISOString(), entry };
 }
 
-/** `aurora-health-data-YYYY-MM-DD.json` */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** `aurora-health-data-YYYY-MM-DD.json` — the local calendar date, like
+ *  every date-forming helper in format.ts: a patient exporting after
+ *  20:00 in Guyana (UTC-4) must not get tomorrow's date. */
 export function exportFilename(now: Date = new Date()): string {
-  return `aurora-health-data-${now.toISOString().slice(0, 10)}.json`;
+  const date = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  return `aurora-health-data-${date}.json`;
 }
