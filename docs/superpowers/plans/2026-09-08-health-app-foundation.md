@@ -10,7 +10,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-health-app-design.md`. **Plan 2** (written after this plan lands) covers Trends, Record, More (withdraw/resume, access history, FHIR export, units/goals), PWA manifest + service worker + icons, the PDR/privacy-notice/PLAN.md updates, and the remaining e2e coverage.
 
-**Applied 2026-09-08.** Tasks 0–6 are done: six migrations live on `gmvrkzumvwhrkqzqwcnu` (a fifth splits the pg_cron schedules out so an extension refusal cannot roll back the archive tables; a sixth tightens two grants), `health` is exposed to PostgREST, and `npm run test:rls` passes 37 checks. Before pushing, the whole set plus a 29-step functional exercise was dry-run inside a rolled-back transaction — that run caught a defect two static reviews had missed (see §Review findings below). Live state: 11 tables, 21 policies, 16 functions, 8 triggers, 2 cron jobs, RLS on every table, zero anon grants.
+**Complete 2026-09-08 — all 16 tasks.** Verified: `npm run verify` (37 unit tests, 54 routes), `npm run test:rls` (37 security checks against the live database), `npm run test:e2e` (7 specs, zero accessibility violations at 375px), plus a manual walk of sign-in → consent → Today → log an urgent reading → close, confirming the audit trail and the retention cascade in the live database.
+
+**Tasks 0–6 detail:** six migrations live on `gmvrkzumvwhrkqzqwcnu` (a fifth splits the pg_cron schedules out so an extension refusal cannot roll back the archive tables; a sixth tightens two grants), `health` is exposed to PostgREST, and `npm run test:rls` passes 37 checks. Before pushing, the whole set plus a 29-step functional exercise was dry-run inside a rolled-back transaction — that run caught a defect two static reviews had missed (see §Review findings below). Live state: 11 tables, 21 policies, 16 functions, 8 triggers, 2 cron jobs, RLS on every table, zero anon grants.
 
 **Review findings folded in (do not regress these):** the audit IP is taken from `cf-connecting-ip`, else the *last* `x-forwarded-for` hop — a client can otherwise forge its own audit IP · `consents.notice_version`/`scope` are length-bounded · lipid ranges widened to lab-realistic bounds · `access_log` is append-only for `service_role` too (no UPDATE/DELETE/TRUNCATE) · `log_app_open`/`log_export` are rate-limited so a client cannot flood the log · `archive_old()` uses explicit column lists and returns a count · every function carries `pg_temp` in `search_path` · one summary audit row replaces per-row cascade noise · `consents.granted_at` defaults to `clock_timestamp()` and `my_status`/`purge_withdrawn` cannot tie.
 
@@ -982,7 +984,7 @@ git add tests/rls/health.mjs package.json && git commit -m "test(health): RLS pr
 - Create: `src/lib/health/ranges.ts`
 - Test: `src/lib/health/ranges.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { test, expect } from "vitest";
@@ -1028,12 +1030,12 @@ test("cholesterol bands", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run src/lib/health/ranges.test.ts`
 Expected: FAIL — cannot resolve `@/lib/health/ranges`.
 
-- [ ] **Step 3: Write the types**
+- [x] **Step 3: Write the types**
 
 `src/lib/health/types.ts`:
 
@@ -1095,7 +1097,7 @@ export type ExerciseInsert = {
 export type Settings = { glucose_unit: Unit; cholesterol_unit: Unit; water_goal_ml: number };
 ```
 
-- [ ] **Step 4: Write the consent notice content**
+- [x] **Step 4: Write the consent notice content**
 
 `src/content/health-notice.ts`:
 
@@ -1140,7 +1142,7 @@ export const healthNotice = {
 } as const;
 ```
 
-- [ ] **Step 5: Write the reference-range content**
+- [x] **Step 5: Write the reference-range content**
 
 `src/content/health-ranges.ts`:
 
@@ -1188,7 +1190,7 @@ export const urgentMessages = {
 } as const;
 ```
 
-- [ ] **Step 6: Write the band functions**
+- [x] **Step 6: Write the band functions**
 
 `src/lib/health/ranges.ts`:
 
@@ -1253,12 +1255,12 @@ export function triglyceridesBand(mgdl: number): Band {
 }
 ```
 
-- [ ] **Step 7: Run the test**
+- [x] **Step 7: Run the test**
 
 Run: `npx vitest run src/lib/health/ranges.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/health/types.ts src/content/health-notice.ts src/content/health-ranges.ts src/lib/health/ranges.ts src/lib/health/ranges.test.ts && git commit -m "feat(health): types, consent notice content, reference bands"
@@ -1273,7 +1275,7 @@ git add src/lib/health/types.ts src/content/health-notice.ts src/content/health-
 - Create: `src/lib/health/format.ts`
 - Test: `src/lib/health/units.test.ts`, `src/lib/health/format.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `src/lib/health/units.test.ts`:
 
@@ -1342,12 +1344,12 @@ test("name helpers", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `npx vitest run src/lib/health/units.test.ts src/lib/health/format.test.ts`
 Expected: FAIL — modules not found.
 
-- [ ] **Step 3: Write `units.ts`**
+- [x] **Step 3: Write `units.ts`**
 
 ```ts
 import type { Unit } from "./types";
@@ -1375,7 +1377,7 @@ export function formatValue(mgdl: number, unit: Unit, factor: number): string {
 }
 ```
 
-- [ ] **Step 4: Write `format.ts`**
+- [x] **Step 4: Write `format.ts`**
 
 ```ts
 /** Small pure helpers for the app's screens. All take an optional `now`
@@ -1434,12 +1436,12 @@ export function greeting(now: Date = new Date()): string {
 }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npx vitest run src/lib/health/units.test.ts src/lib/health/format.test.ts`
 Expected: 7 passed. (The "12 Aug" case formats in UTC on purpose so the test is timezone-independent; the UI passes real timestamps, and a one-day drift at midnight is acceptable for a "12 Aug" label.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/health/units.ts src/lib/health/format.ts src/lib/health/units.test.ts src/lib/health/format.test.ts && git commit -m "feat(health): unit conversion and formatting helpers"
@@ -1453,7 +1455,7 @@ git add src/lib/health/units.ts src/lib/health/format.ts src/lib/health/units.te
 - Create: `src/lib/validation/health.ts`
 - Test: `src/lib/validation/health.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { test, expect } from "vitest";
@@ -1503,12 +1505,12 @@ test("consent requires the box ticked", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run src/lib/validation/health.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the schemas**
+- [x] **Step 3: Write the schemas**
 
 `src/lib/validation/health.ts`:
 
@@ -1613,12 +1615,12 @@ export const healthConsentSchema = z.object({
 });
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `npx vitest run src/lib/validation/health.test.ts`
 Expected: 6 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/validation/health.ts src/lib/validation/health.test.ts && git commit -m "feat(health): zod schemas for readings, lifestyle entries and consent"
@@ -1633,7 +1635,7 @@ git add src/lib/validation/health.ts src/lib/validation/health.test.ts && git co
 
 No unit test (network wrappers); the RLS script (Task 6) and the e2e (Task 16) exercise them. Typecheck must pass.
 
-- [ ] **Step 1: Write the client**
+- [x] **Step 1: Write the client**
 
 ```ts
 "use client";
@@ -1753,12 +1755,12 @@ export async function loadToday(): Promise<TodayData> {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/health/client.ts && git commit -m "feat(health): schema client wrappers (status, consent, inserts, today)"
@@ -1773,7 +1775,7 @@ git add src/lib/health/client.ts && git commit -m "feat(health): schema client w
 - Create: `src/components/SiteChrome.tsx`
 - Modify: `src/app/layout.tsx:61-66`
 
-- [ ] **Step 1: Add six icons**
+- [x] **Step 1: Add six icons**
 
 In `src/components/icons.tsx`, extend the union — replace the line `  | "home";` with:
 
@@ -1826,7 +1828,7 @@ and, inside `const paths`, after the `home:` entry (before the closing `};`) add
   ),
 ```
 
-- [ ] **Step 2: Create `SiteChrome`**
+- [x] **Step 2: Create `SiteChrome`**
 
 `src/components/SiteChrome.tsx`:
 
@@ -1844,7 +1846,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 }
 ```
 
-- [ ] **Step 3: Use it in the root layout**
+- [x] **Step 3: Use it in the root layout**
 
 In `src/app/layout.tsx`, add the import `import { SiteChrome } from "@/components/SiteChrome";` after the `ConsentBanner` import, and replace
 
@@ -1872,12 +1874,12 @@ with
         </SiteChrome>
 ```
 
-- [ ] **Step 4: Verify the public site is unchanged**
+- [x] **Step 4: Verify the public site is unchanged**
 
 Run: `npm run verify`
 Expected: green. Then `npm run dev`, open http://localhost:3000/ and confirm nav and footer still render (the `/app` route does not exist yet — that comes next).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/icons.tsx src/components/SiteChrome.tsx src/app/layout.tsx && git commit -m "feat(app): tab icons and a site-chrome switch for /app"
@@ -1897,7 +1899,7 @@ git add src/components/icons.tsx src/components/SiteChrome.tsx src/app/layout.ts
 - Create: `src/app/app/layout.tsx`, `src/app/app/page.tsx`, `src/app/app/consent/page.tsx`
 - Create: `src/app/app/trends/page.tsx`, `src/app/app/record/page.tsx`, `src/app/app/more/page.tsx` (stubs replaced in Plan 2)
 
-- [ ] **Step 1: The app context**
+- [x] **Step 1: The app context**
 
 `src/components/app/AppContext.tsx`:
 
@@ -1927,7 +1929,7 @@ export function useApp(): AppContextValue {
 }
 ```
 
-- [ ] **Step 2: Offline detection**
+- [x] **Step 2: Offline detection**
 
 `src/components/app/OfflineBanner.tsx`:
 
@@ -1964,7 +1966,7 @@ export function OfflineBanner() {
 }
 ```
 
-- [ ] **Step 3: Top bar**
+- [x] **Step 3: Top bar**
 
 `src/components/app/TopBar.tsx`:
 
@@ -2011,7 +2013,7 @@ export function TopBar() {
 }
 ```
 
-- [ ] **Step 4: Tab bar**
+- [x] **Step 4: Tab bar**
 
 `src/components/app/TabBar.tsx`:
 
@@ -2072,7 +2074,7 @@ export function TabBar({ onLog }: { onLog: () => void }) {
 }
 ```
 
-- [ ] **Step 5: The shell (Task 14 replaces this file to add the Log sheet)**
+- [x] **Step 5: The shell (Task 14 replaces this file to add the Log sheet)**
 
 `src/components/app/AppShell.tsx`:
 
@@ -2166,7 +2168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 ```
 
-- [ ] **Step 6: Consent screen**
+- [x] **Step 6: Consent screen**
 
 `src/components/app/ConsentScreen.tsx`:
 
@@ -2239,7 +2241,7 @@ export function ConsentScreen() {
 }
 ```
 
-- [ ] **Step 7: Routes**
+- [x] **Step 7: Routes**
 
 `src/app/app/layout.tsx`:
 
@@ -2335,7 +2337,7 @@ export default function MorePage() {
 }
 ```
 
-- [ ] **Step 8: Verify in the browser**
+- [x] **Step 8: Verify in the browser**
 
 Run: `npm run verify` — expected green (`/app`, `/app/consent`, `/app/trends`, `/app/record`, `/app/more` appear in the route list). Then `npm run dev`, sign in at http://localhost:3000/patient-login/ with a real patient account, open http://localhost:3000/app/ and confirm:
 - you land on **Before you start** with no nav/footer;
@@ -2350,7 +2352,7 @@ python3 "/private/tmp/claude-501/-Users-stefangravesande-Documents-Projects-Rout
 ```
 Expected: rows `app_open`/`app`, `insert`/`settings`, `consent_granted`/`consents`, with `has_ip` true and a browser UA prefix.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/components/app src/app/app && git commit -m "feat(app): shell with session/consent guards, tab bar, consent screen"
@@ -2364,7 +2366,7 @@ git add src/components/app src/app/app && git commit -m "feat(app): shell with s
 - Create: `src/components/app/RangeBadge.tsx`, `src/components/app/MetricCard.tsx`, `src/components/app/WaterCard.tsx`, `src/components/app/TodayScreen.tsx`
 - Modify: `src/app/app/page.tsx` (full replacement)
 
-- [ ] **Step 1: RangeBadge**
+- [x] **Step 1: RangeBadge**
 
 ```tsx
 import type { Band } from "@/lib/health/ranges";
@@ -2387,7 +2389,7 @@ export function RangeBadge({ band }: { band: Band }) {
 }
 ```
 
-- [ ] **Step 2: MetricCard**
+- [x] **Step 2: MetricCard**
 
 ```tsx
 import type { Band } from "@/lib/health/ranges";
@@ -2433,7 +2435,7 @@ export function MetricCard({
 }
 ```
 
-- [ ] **Step 3: WaterCard**
+- [x] **Step 3: WaterCard**
 
 ```tsx
 "use client";
@@ -2497,7 +2499,7 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
 }
 ```
 
-- [ ] **Step 4: TodayScreen**
+- [x] **Step 4: TodayScreen**
 
 ```tsx
 "use client";
@@ -2601,7 +2603,7 @@ export function TodayScreen() {
 }
 ```
 
-- [ ] **Step 5: Replace the page**
+- [x] **Step 5: Replace the page**
 
 `src/app/app/page.tsx`:
 
@@ -2616,11 +2618,11 @@ export default function AppTodayPage() {
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npm run verify` — green. In the dev server, `/app/` shows the greeting, three empty metric cards ("No reading yet."), the water card at 0 / 2,000 ml; pressing **+250 ml** moves the bar to 250 and a `insert`/`water_intake` row appears in `health.access_log` (query from Task 12 Step 8).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/app/RangeBadge.tsx src/components/app/MetricCard.tsx src/components/app/WaterCard.tsx src/components/app/TodayScreen.tsx src/app/app/page.tsx && git commit -m "feat(app): Today screen with latest readings, bands and water"
@@ -2635,7 +2637,7 @@ git add src/components/app/RangeBadge.tsx src/components/app/MetricCard.tsx src/
 - Create: `src/components/app/forms/shared.tsx`, `BpForm.tsx`, `GlucoseForm.tsx`, `CholesterolForm.tsx`, `WaterForm.tsx`, `ExerciseForm.tsx`
 - Modify: `src/components/app/AppShell.tsx` (full replacement)
 
-- [ ] **Step 1: Focus trap**
+- [x] **Step 1: Focus trap**
 
 `src/components/app/useFocusTrap.ts`:
 
@@ -2672,7 +2674,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
 }
 ```
 
-- [ ] **Step 2: Shared form pieces**
+- [x] **Step 2: Shared form pieces**
 
 `src/components/app/forms/shared.tsx`:
 
@@ -2726,7 +2728,7 @@ export function SaveRow({ busy, error }: { busy: boolean; error?: string }) {
 }
 ```
 
-- [ ] **Step 3: Blood pressure form**
+- [x] **Step 3: Blood pressure form**
 
 `src/components/app/forms/BpForm.tsx`:
 
@@ -2784,7 +2786,7 @@ export function BpForm({ patientId, onSaved }: { patientId: string; onSaved: (in
 }
 ```
 
-- [ ] **Step 4: Glucose form**
+- [x] **Step 4: Glucose form**
 
 `src/components/app/forms/GlucoseForm.tsx`:
 
@@ -2857,7 +2859,7 @@ export function GlucoseForm({
 }
 ```
 
-- [ ] **Step 5: Cholesterol form**
+- [x] **Step 5: Cholesterol form**
 
 `src/components/app/forms/CholesterolForm.tsx`:
 
@@ -2934,7 +2936,7 @@ export function CholesterolForm({
 }
 ```
 
-- [ ] **Step 6: Water form**
+- [x] **Step 6: Water form**
 
 `src/components/app/forms/WaterForm.tsx`:
 
@@ -2989,7 +2991,7 @@ export function WaterForm({ patientId, onSaved }: { patientId: string; onSaved: 
 }
 ```
 
-- [ ] **Step 7: Exercise form**
+- [x] **Step 7: Exercise form**
 
 `src/components/app/forms/ExerciseForm.tsx`:
 
@@ -3059,7 +3061,7 @@ export function ExerciseForm({ patientId, onSaved }: { patientId: string; onSave
 }
 ```
 
-- [ ] **Step 8: The sheet**
+- [x] **Step 8: The sheet**
 
 `src/components/app/LogSheet.tsx`:
 
@@ -3190,7 +3192,7 @@ export function LogSheet({
 }
 ```
 
-- [ ] **Step 9: Wire the sheet into the shell — a surgical edit, NOT a replacement**
+- [x] **Step 9: Wire the sheet into the shell — a surgical edit, NOT a replacement**
 
 `AppShell.tsx` has absorbed a round of review fixes since this plan was written (a consent-route render guard, focus management on tab change, a retry branch, session on the context, DOM order for focus). **Do not replace the file.** Make exactly these four changes:
 
@@ -3230,11 +3232,11 @@ with
 
 Leave everything else in the file exactly as it is. In particular do not touch the `consented === onConsent` guard, the focus effect, the `loadFailed` branch, or the DOM order of `TabBar` / `TopBar` / content — each of those fixes a defect a review found.
 
-- [ ] **Step 10: Verify**
+- [x] **Step 10: Verify**
 
 Run: `npm run verify` — green. In the dev server on a 375 px-wide viewport: tap **+** → the sheet slides up with the BP form focused; enter 128 / 82 → **Save** → "Blood pressure 128/82 saved" with an **Elevated** badge; **Done** → the Today card shows 128/82 · Elevated. Try 185/125 → the urgent message appears. Switch to **Sugar**, choose mmol/L, enter 5.8 fasting → saved; Today shows **5.8 mmol/L** (the unit preference was remembered). Escape closes the sheet and focus returns to the + button.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/components/app && git commit -m "feat(app): Log sheet with BP, sugar, cholesterol, water and exercise forms"
@@ -3248,7 +3250,7 @@ git add src/components/app && git commit -m "feat(app): Log sheet with BP, sugar
 - Modify: `src/app/account/patient/PatientDashboard.tsx:56` (insert before the Profile card)
 - Modify: `docs/PLAN.md` (new milestone note before `## 3. Working practices with Claude Code`)
 
-- [ ] **Step 1: Add the card**
+- [x] **Step 1: Add the card**
 
 In `PatientDashboard.tsx`, directly above `<Card>` … `<h2 className="text-xl">Profile</h2>`, insert:
 
@@ -3263,7 +3265,7 @@ In `PatientDashboard.tsx`, directly above `<Card>` … `<h2 className="text-xl">
       </Card>
 ```
 
-- [ ] **Step 2: Add the PLAN.md note**
+- [x] **Step 2: Add the PLAN.md note**
 
 Insert before the line `## 3. Working practices with Claude Code`:
 
@@ -3278,7 +3280,7 @@ Done when:
 - [ ] Plan 2 delivered: Trends, Record, More (withdraw/export/access history), PWA manifest + service worker, PDR/notice updates
 ```
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 Run: `npm run verify` — green; the dashboard shows the new card first.
 
@@ -3293,7 +3295,7 @@ git add src/app/account/patient/PatientDashboard.tsx docs/PLAN.md && git commit 
 **Files:**
 - Create: `tests/e2e/env.ts`, `tests/e2e/health-app.spec.ts`
 
-- [ ] **Step 1: Env loader (Playwright does not read `.env.local`)**
+- [x] **Step 1: Env loader (Playwright does not read `.env.local`)**
 
 `tests/e2e/env.ts`:
 
@@ -3314,7 +3316,7 @@ export function loadEnvLocal(): void {
 }
 ```
 
-- [ ] **Step 2: The spec**
+- [x] **Step 2: The spec**
 
 `tests/e2e/health-app.spec.ts`:
 
@@ -3408,19 +3410,19 @@ test("keyboard: Escape closes the sheet and focus returns to the opener", async 
 });
 ```
 
-- [ ] **Step 3: Run the e2e**
+- [x] **Step 3: Run the e2e**
 
 Run: `lsof -ti:3000 | xargs kill -9 2>/dev/null; npm run test:e2e -- tests/e2e/health-app.spec.ts`
 Expected: 2 passed (the second test reuses the consent from the first because both run in the same worker against the same seeded user; if Playwright parallelises them, set `test.describe.configure({ mode: "serial" })` at the top of the file).
 
-- [ ] **Step 4: Full verification**
+- [x] **Step 4: Full verification**
 
 ```bash
 npm run verify && npm run test:rls && npm run test:e2e
 ```
 Expected: verify green; `ALL RLS CHECKS PASSED` + `ALL HEALTH RLS CHECKS PASSED`; every e2e spec green (existing specs still pass — the site chrome is unchanged outside `/app`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/e2e/env.ts tests/e2e/health-app.spec.ts && git commit -m "test(app): e2e consent → Today → Log sheet with axe at 375px"
