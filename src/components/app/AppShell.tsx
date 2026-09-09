@@ -126,7 +126,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppProvider value={value}>
-      <div className="min-h-screen md:pl-24">
+      {/* `inert` while the sheet is open: the focus trap keeps Tab inside the
+          dialog, but a screen reader in browse mode can still walk the page
+          behind it. The sheet renders outside this element (it is fixed, so
+          it needs no place in the layout) and stays reachable. */}
+      <div className="min-h-screen md:pl-24" inert={log.open}>
         {/* I1: nav is first in the DOM so keyboard focus order matches the
             md+ left-rail layout (WCAG 2.4.3) — TabBar is `fixed`, so this
             has no effect on where it paints at any breakpoint. */}
@@ -136,10 +140,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">
           {children}
         </div>
-        {consented && status.patientId ? (
-          <LogSheet open={log.open} kind={log.kind} patientId={status.patientId} onClose={closeLog} onSaved={bump} />
-        ) : null}
       </div>
+      {consented && status.patientId ? (
+        <LogSheet open={log.open} kind={log.kind} patientId={status.patientId} onClose={closeLog} onSaved={bump} />
+      ) : null}
     </AppProvider>
   );
 }
