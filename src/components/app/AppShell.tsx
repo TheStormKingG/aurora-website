@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
 import { fetchStatus, logAppOpen, type HealthStatus } from "@/lib/health/client";
-import { HEALTH_NOTICE_VERSION } from "@/content/health-notice";
+import { isConsentCurrent } from "@/lib/health/consent";
 import { AppProvider, type AppContextValue } from "./AppContext";
 import { TopBar } from "./TopBar";
 import { TabBar } from "./TabBar";
@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [session, refreshStatus]);
 
   const onConsent = pathname.startsWith("/app/consent");
-  const consented = status?.activeVersion === HEALTH_NOTICE_VERSION;
+  const consented = isConsentCurrent(status?.activeVersion ?? null); // spec §15: extracted, tested
 
   useEffect(() => {
     if (!status) return;
