@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/auth/session";
 import { insertWater, loadToday, type TodayData } from "@/lib/health/client";
 import { firstName, greeting, relativeTime } from "@/lib/health/format";
 import { bpBand, cholesterolBand, glucoseBand, DISCLAIMER } from "@/lib/health/ranges";
@@ -16,8 +15,7 @@ const contextLabel: Record<GlucoseContext, string> = {
 };
 
 export function TodayScreen() {
-  const { status, version, openLog, bump } = useApp();
-  const session = useSession();
+  const { status, version, openLog, bump, session } = useApp(); // I2: shared session
   const [data, setData] = useState<TodayData | null>(null);
   const [error, setError] = useState<string>();
   const [retryTick, setRetryTick] = useState(0); // C2: bumped by "Try again" to force a refetch

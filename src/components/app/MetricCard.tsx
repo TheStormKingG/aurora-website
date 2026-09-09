@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { Band } from "@/lib/health/ranges";
 import { RangeBadge } from "./RangeBadge";
 
@@ -12,11 +13,18 @@ export function MetricCard({
   emptyText: string;
   onLog: () => void;
 }) {
+  const headingId = useId();
   return (
-    <section aria-label={label} className="rounded-2xl border border-line-dark bg-indigo p-4">
+    <section aria-labelledby={headingId} className="rounded-2xl border border-line-dark bg-indigo p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-silver">{label}</p>
+          {/* I5: a real heading, not just an aria-label, so the screen
+              reads by heading below the greeting. font-body/font-normal
+              undo the global h2 styling (bold, Montserrat) — this is
+              still the small muted label, not a visible section title. */}
+          <h2 id={headingId} className="font-body text-sm font-normal leading-normal text-silver">
+            {label}
+          </h2>
           {value ? (
             <p className="mt-1 font-heading text-3xl font-semibold text-starlight">
               {value}

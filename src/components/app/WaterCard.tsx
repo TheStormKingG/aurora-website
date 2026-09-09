@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Icon } from "@/components/icons";
 
 export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd: (ml: number) => Promise<void> }) {
+  const headingId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const pct = Math.min(100, Math.round((ml / goal) * 100));
@@ -21,11 +22,13 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
   }
 
   return (
-    <section aria-label="Water" className="rounded-2xl border border-line-dark bg-indigo p-4">
+    <section aria-labelledby={headingId} className="rounded-2xl border border-line-dark bg-indigo p-4">
       <div className="flex items-center justify-between text-sm">
-        <span className="flex items-center gap-2 text-silver">
+        {/* I5: same treatment as MetricCard — a real heading below the
+            greeting, styled to still read as a muted label. */}
+        <h2 id={headingId} className="flex items-center gap-2 font-body font-normal leading-normal text-silver">
           <Icon name="drop" className="h-4 w-4 text-cyan" /> Water today
-        </span>
+        </h2>
         <span className="text-starlight">
           {ml.toLocaleString("en-GB")} / {goal.toLocaleString("en-GB")} ml
         </span>

@@ -59,7 +59,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!status) return;
     if (!consented && !onConsent) router.replace("/app/consent/");
     else if (consented && onConsent) router.replace("/app/");
-    if (consented && status.patientId) logAppOpen(status.patientId).catch(() => undefined);
+    if (consented && status.patientId) {
+      logAppOpen(status.patientId).catch(() => {
+        // I7: a silent gap here is invisible both to the patient's own
+        // access-history list and to the DPIA (spec §7) — at least put
+        // it on the console instead of dropping it.
+        console.error(JSON.stringify({ event: "health.log_app_open_failed" }));
+      });
+    }
   }, [status, consented, onConsent, router]);
 
   // C3 / spec §9.1: move focus to the new screen's heading on tab change —
@@ -80,8 +87,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const openLog = useCallback(() => undefined, []); // replaced in Task 14
   const bump = useCallback(() => setVersion((v) => v + 1), []);
   const value = useMemo<AppContextValue | null>(
-    () => (status ? { status, refreshStatus, openLog, version, bump } : null),
-    [status, refreshStatus, openLog, version, bump],
+    () => (status ? { status, refreshStatus, openLog, version, bump, session } : null),
+    [status, refreshStatus, openLog, version, bump, session],
   );
 
   if (loadFailed) {
@@ -109,12 +116,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider value={value}>
       <div className="min-h-screen md:pl-24">
-        <TopBar />
+        {/* I1: nav is first in the DOM so keyboard focus order matches the
+            md+ left-rail layout (WCAG 2.4.3) — TabBar is `fixed`, so this
+            has no effect on where it paints at any breakpoint. */}
+        {consented ? <TabBar onLog={() => openLog()} /> : null}
+        <TopBar session={session} />
         <OfflineBanner />
         <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">
           {children}
         </div>
-        {consented ? <TabBar onLog={() => openLog()} /> : null}
       </div>
     </AppProvider>
   );
