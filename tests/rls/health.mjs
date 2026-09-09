@@ -123,7 +123,9 @@ try {
 
   // 7b. The audit IP is edge-set, not client-set (spec §7).
   const forged = await signedIn(a, { "x-forwarded-for": "203.0.113.7" });
-  await H(forged).from("readings").insert(bp(pidA, { systolic: 121, diastolic: 79 }));
+  // Captured (not a bare insert): 8c below deletes `ins.data.id`, so the
+  // withdrawal-update check further down needs a row that is still live.
+  const forgedIns = await H(forged).from("readings").insert(bp(pidA, { systolic: 121, diastolic: 79 })).select("id").single();
   const ips = await H(admin).from("access_log").select("ip").eq("patient_id", pidA).eq("action", "insert");
   if (!(ips.data ?? []).some((r) => r.ip === "203.0.113.7")) ok("client cannot forge its audit IP");
   else fail("TAMPER: client-supplied x-forwarded-for was recorded as the audit IP");
@@ -140,11 +142,35 @@ try {
   if (live.data.length === 2 && archived.data.length === 1) ok("archive_old moved the 13-month-old reading");
   else fail(`archive_old: live=${live.data?.length} archived=${archived.data?.length}`);
 
+  // 8b. Record entries: own-rows-only, consent-gated, deletable by the owner.
+  const peA = await H(ca).from("profile_entries")
+    .insert({ patient_id: pidA, category: "condition", label: "Hypertension", is_current: true })
+    .select("id").single();
+  if (!peA.error) ok("inserts own record entry"); else fail("record insert failed: " + peA.error.message);
+  const bSeesPe = await H(cb).from("profile_entries").select("id").eq("id", peA.data.id);
+  if (bSeesPe.data && bSeesPe.data.length === 0) ok("B cannot read A's record entry"); else fail("LEAK: B read A's record entry");
+  await H(cb).from("profile_entries").update({ label: "tampered" }).eq("id", peA.data.id);
+  const peCheck = await H(ca).from("profile_entries").select("label").eq("id", peA.data.id).single();
+  if (peCheck.data?.label === "Hypertension") ok("B cannot update A's record entry"); else fail("LEAK: B updated A's record entry");
+  await H(cb).from("profile_entries").delete().eq("id", peA.data.id);
+  const stillPe = await H(ca).from("profile_entries").select("id").eq("id", peA.data.id);
+  if (stillPe.data && stillPe.data.length === 1) ok("B cannot delete A's record entry"); else fail("LEAK: B deleted A's record entry");
+
+  // 8c. A deletes their own rows, and the deletion is audited.
+  const delRes = await H(ca).from("readings").delete().eq("id", ins.data.id);
+  const goneOne = await H(ca).from("readings").select("id").eq("id", ins.data.id);
+  if (!delRes.error && goneOne.data.length === 0) ok("A deletes own reading"); else fail("A could not delete own reading");
+  const delLog = await H(ca).from("access_log").select("action, resource").eq("action", "delete");
+  if ((delLog.data ?? []).some((r) => r.resource === "readings")) ok("the delete is audited"); else fail("delete not audited");
+
   // 9. Withdrawal blocks new writes and schedules deletion.
   await H(ca).rpc("withdraw_consent");
   const postWd = await H(ca).from("readings").insert(bp(pidA));
   if (postWd.error) ok("withdrawal blocks inserts"); else fail("LEAK: inserted after withdrawal");
-  const postWdUpd = await H(ca).from("readings").update({ note: "later" }).eq("id", ins.data.id).select("note");
+  // Target forgedIns, not ins: 8c already deleted `ins.data.id`, and an
+  // update matching zero rows because the row is gone would pass this
+  // check without the RLS policy doing anything.
+  const postWdUpd = await H(ca).from("readings").update({ note: "later" }).eq("id", forgedIns.data.id).select("note");
   if (postWdUpd.error || (postWdUpd.data ?? []).length === 0) ok("withdrawal blocks updates");
   else fail("LEAK: updated after withdrawal");
   const st2 = await H(ca).rpc("my_status");
