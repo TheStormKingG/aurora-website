@@ -5,10 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
 import { fetchStatus, logAppOpen, type HealthStatus } from "@/lib/health/client";
 import { isConsentCurrent } from "@/lib/health/consent";
+import type { LogKind } from "@/lib/health/types";
 import { AppProvider, type AppContextValue } from "./AppContext";
 import { TopBar } from "./TopBar";
 import { TabBar } from "./TabBar";
 import { OfflineBanner } from "./OfflineBanner";
+import { LogSheet } from "./LogSheet";
 
 /** Shared by every branch below that has nothing to show yet — a live
  *  region (M4) so it's announced instead of sitting there silently. */
@@ -32,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<HealthStatus | undefined>();
   const [loadFailed, setLoadFailed] = useState(false);
   const [version, setVersion] = useState(0);
+  const [log, setLog] = useState<{ open: boolean; kind: LogKind }>({ open: false, kind: "blood_pressure" });
   const contentRef = useRef<HTMLDivElement>(null);
   const skipFocus = useRef(true);
 
@@ -84,7 +87,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     heading.focus();
   }, [pathname]);
 
-  const openLog = useCallback(() => undefined, []); // replaced in Task 14
+  const openLog = useCallback((kind: LogKind = "blood_pressure") => setLog({ open: true, kind }), []);
+  const closeLog = useCallback(() => setLog((l) => ({ ...l, open: false })), []);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
   const value = useMemo<AppContextValue | null>(
     () => (status ? { status, refreshStatus, openLog, version, bump, session } : null),
@@ -132,6 +136,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">
           {children}
         </div>
+        {consented && status.patientId ? (
+          <LogSheet open={log.open} kind={log.kind} patientId={status.patientId} onClose={closeLog} onSaved={bump} />
+        ) : null}
       </div>
     </AppProvider>
   );
