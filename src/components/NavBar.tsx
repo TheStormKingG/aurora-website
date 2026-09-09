@@ -7,7 +7,6 @@ import { useEffect, useId, useState } from "react";
 import { primaryNav, utilityNav, site } from "@/content/site";
 import { asset } from "@/lib/asset";
 import { useSession } from "@/lib/auth/session";
-import { AuroraMark } from "./AuroraLogo";
 import { Icon } from "./icons";
 
 /**
@@ -44,99 +43,103 @@ export function NavBar() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line-dark bg-navy/85 backdrop-blur-md">
-      <nav aria-label="Primary" className="mx-auto flex h-[4.5rem] max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-3"
-          aria-label={`${site.name} — home`}
-        >
-          <AuroraMark className="h-9 w-9 lg:hidden" />
-          <Image
-            src={asset("/brand/hm-aurora-logo.png")}
-            alt=""
-            width={1000}
-            height={276}
-            priority
-            className="hidden h-11 w-auto lg:block"
-          />
-          <span className="sr-only">{site.name}</span>
-        </Link>
+    <>
+      <header className="sticky top-0 z-50 border-b border-line-dark bg-navy/85 backdrop-blur-md">
+        <nav aria-label="Primary" className="mx-auto flex h-[4.5rem] max-w-7xl items-center gap-6 px-4 sm:px-6">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-3"
+            aria-label={`${site.name} — home`}
+          >
+            <Image
+              src={asset("/brand/hm-aurora-logo.png")}
+              alt=""
+              width={1000}
+              height={276}
+              priority
+              className="h-auto w-[180px] max-w-full"
+            />
+            <span className="sr-only">{site.name}</span>
+          </Link>
 
-        {/* Desktop links */}
-        <ul className="ml-auto hidden items-center gap-6 xl:flex">
-          {primaryNav.map((item) => (
-            <li key={item.href}>
+          {/* Desktop links */}
+          <ul className="ml-auto hidden items-center gap-6 xl:flex">
+            {primaryNav.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`nav-underline text-sm font-medium transition-colors hover:text-cyan ${
+                    isActive(item.href) ? "text-cyan" : "text-silver"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <div className="ml-auto hidden items-center gap-3 xl:ml-6 xl:flex">
+            {session ? (
               <Link
-                href={item.href}
-                aria-current={isActive(item.href) ? "page" : undefined}
-                className={`nav-underline text-sm font-medium transition-colors hover:text-cyan ${
-                  isActive(item.href) ? "text-cyan" : "text-silver"
-                }`}
+                href="/account/patient"
+                className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
               >
-                {item.label}
+                <Icon name="users" className="h-4 w-4" />
+                Account
               </Link>
-            </li>
-          ))}
-        </ul>
-
-        <div className="ml-auto hidden items-center gap-3 xl:ml-6 xl:flex">
-          {session ? (
-            <Link
-              href="/account/patient"
-              className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
-            >
-              <Icon name="users" className="h-4 w-4" />
-              Account
-            </Link>
-          ) : (
-            <Link
-              href="/patient-login"
-              className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
-            >
-              <Icon name="lock" className="h-4 w-4" />
-              Patient Login
-            </Link>
-          )}
-          <Link
-            href="/book"
-            className="inline-flex items-center gap-1.5 rounded-full bg-cyan px-5 py-2 font-heading text-sm font-semibold text-navy transition-colors hover:bg-blue"
-          >
-            <Icon name="calendar" className="h-4 w-4" />
-            Book Appointment
-          </Link>
-        </div>
-
-        {/* Mobile controls */}
-        <div className="ml-auto flex items-center gap-2 xl:hidden">
-          <Link
-            href="/book"
-            className="inline-flex items-center gap-1.5 rounded-full bg-cyan px-4 py-2 font-heading text-sm font-semibold text-navy"
-          >
-            Book
-          </Link>
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={menuId}
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line-dark text-starlight"
-          >
-            <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
-            {open ? (
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                <path d="M5 5l14 14M19 5 5 19" />
-              </svg>
             ) : (
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
+              <Link
+                href="/patient-login"
+                className="inline-flex items-center gap-1.5 rounded-full border border-silver/40 px-4 py-2 text-sm font-semibold text-starlight transition-colors hover:border-cyan hover:text-cyan"
+              >
+                <Icon name="lock" className="h-4 w-4" />
+                Patient Login
+              </Link>
             )}
-          </button>
-        </div>
-      </nav>
+            <Link
+              href="/book"
+              className="inline-flex items-center gap-1.5 rounded-full bg-cyan px-5 py-2 font-heading text-sm font-semibold text-navy transition-colors hover:bg-blue"
+            >
+              <Icon name="calendar" className="h-4 w-4" />
+              Book Appointment
+            </Link>
+          </div>
 
-      {/* Mobile panel */}
+          {/* Mobile controls */}
+          <div className="ml-auto flex items-center gap-2 xl:hidden">
+            <Link
+              href="/book"
+              className="inline-flex items-center gap-1.5 rounded-full bg-cyan px-4 py-2 font-heading text-sm font-semibold text-navy"
+            >
+              Book
+            </Link>
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={menuId}
+              onClick={() => setOpen((v) => !v)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line-dark text-starlight"
+            >
+              <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
+              {open ? (
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M5 5l14 14M19 5 5 19" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </nav>
+
+      </header>
+
+      {/* Mobile panel — a sibling of <header>, never a child. The header's
+          backdrop-filter would otherwise become this panel's containing
+          block and collapse it to nothing. */}
       <div
         id={menuId}
         hidden={!open}
@@ -191,6 +194,6 @@ export function NavBar() {
           <p className="eyebrow mt-10 text-center">{site.tagline}</p>
         </nav>
       </div>
-    </header>
+    </>
   );
 }
