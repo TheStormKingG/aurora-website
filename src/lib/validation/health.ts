@@ -122,3 +122,20 @@ export type ExerciseInput = z.infer<typeof exerciseSchema>;
 export const healthConsentSchema = z.object({
   agree: z.literal(true, { error: "Tick the box to continue." }),
 });
+
+/** The nursing checklist (spec §6 profile_entries). Mirrors the table's
+ *  CHECK constraints so the patient gets a readable message first. */
+export const profileEntrySchema = z.object({
+  category: z.enum(["condition", "surgery", "medication", "allergy", "family_history"], {
+    error: "Choose a category.",
+  }),
+  label: z.string().trim().min(1, "Enter a name.").max(120, "Keep it under 120 characters."),
+  detail: z.string().trim().max(500, "Keep the detail under 500 characters.").nullish(),
+  occurredOn: z
+    .string()
+    .refine((d) => d === "" || (/^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T00:00:00`) <= new Date()),
+      "Enter a real date, today or earlier.")
+    .optional(),
+  isCurrent: z.boolean().default(true),
+});
+export type ProfileEntryInput = z.infer<typeof profileEntrySchema>;

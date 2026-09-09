@@ -1,7 +1,7 @@
 import { test, expect } from "vitest";
 import {
   bpReadingSchema, glucoseReadingSchema, cholesterolReadingSchema,
-  waterSchema, exerciseSchema, healthConsentSchema,
+  waterSchema, exerciseSchema, healthConsentSchema, profileEntrySchema,
 } from "@/lib/validation/health";
 
 const now = () => new Date().toISOString();
@@ -101,4 +101,23 @@ test("note: accepts up to 300 characters, rejects 301, and accepts null (a clear
 test("consent requires the box ticked", () => {
   expect(healthConsentSchema.safeParse({ agree: true }).success).toBe(true);
   expect(healthConsentSchema.safeParse({ agree: false }).success).toBe(false);
+});
+
+test("profile entry: category, label bounds, optional detail and date", () => {
+  const ok = { category: "condition", label: "Hypertension", isCurrent: true };
+  expect(profileEntrySchema.safeParse(ok).success).toBe(true);
+  expect(profileEntrySchema.safeParse({ ...ok, category: "nope" }).success).toBe(false);
+  expect(profileEntrySchema.safeParse({ ...ok, label: "" }).success).toBe(false);
+  expect(profileEntrySchema.safeParse({ ...ok, label: "x".repeat(120) }).success).toBe(true);
+  expect(profileEntrySchema.safeParse({ ...ok, label: "x".repeat(121) }).success).toBe(false);
+  expect(profileEntrySchema.safeParse({ ...ok, detail: "x".repeat(500) }).success).toBe(true);
+  expect(profileEntrySchema.safeParse({ ...ok, detail: "x".repeat(501) }).success).toBe(false);
+});
+
+test("profile entry: a date must be a real past-or-present day", () => {
+  const ok = { category: "surgery", label: "Appendectomy", isCurrent: false };
+  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "2019-04-02" }).success).toBe(true);
+  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "" }).success).toBe(true);
+  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "not-a-date" }).success).toBe(false);
+  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "2999-01-01" }).success).toBe(false);
 });
