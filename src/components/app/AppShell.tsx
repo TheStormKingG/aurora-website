@@ -10,6 +10,16 @@ import { TopBar } from "./TopBar";
 import { TabBar } from "./TabBar";
 import { OfflineBanner } from "./OfflineBanner";
 
+/** Shared by every branch below that has nothing to show yet — a live
+ *  region (M4) so it's announced instead of sitting there silently. */
+function ShellLoading() {
+  return (
+    <p role="status" className="px-4 py-24 text-center text-silver">
+      Loading…
+    </p>
+  );
+}
+
 /**
  * App shell for /app (spec §9.1): session guard → consent guard → one
  * app_open audit event per browser session → top bar, tab bar, offline
@@ -68,11 +78,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (session === undefined || status === undefined) {
-    return <p className="px-4 py-24 text-center text-silver">Loading…</p>;
-  }
+  if (session === undefined || status === undefined) return <ShellLoading />;
   if (session === null || !value) return null;
-  if (!consented && !onConsent) return null;
+  // C1: render only when consent state and route disagree. A consented
+  // patient on /app/consent, or an unconsented patient anywhere else, is
+  // mid-redirect (the effect above) — show Loading, not a paintable
+  // screen, so the window between paint and redirect can't be tapped
+  // through (a consented patient could otherwise re-submit consent and
+  // grant_consent would insert a duplicate row). Loading rather than a
+  // bare null (M2) so the redirect doesn't flash a blank frame either.
+  if (consented === onConsent) return <ShellLoading />;
 
   return (
     <AppProvider value={value}>
