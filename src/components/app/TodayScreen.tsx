@@ -20,14 +20,19 @@ export function TodayScreen() {
   const session = useSession();
   const [data, setData] = useState<TodayData | null>(null);
   const [error, setError] = useState<string>();
+  const [retryTick, setRetryTick] = useState(0); // C2: bumped by "Try again" to force a refetch
 
   useEffect(() => {
     let live = true;
     loadToday()
-      .then((d) => { if (live) setData(d); })
+      .then((d) => {
+        if (!live) return;
+        setData(d);
+        setError(undefined); // C2: a later success must clear a stale banner
+      })
       .catch(() => { if (live) setError("Couldn't load your readings. Check your connection."); });
     return () => { live = false; };
-  }, [version]);
+  }, [version, retryTick]);
 
   async function addWater(ml: number) {
     if (!status.patientId) return;
@@ -49,7 +54,18 @@ export function TodayScreen() {
           {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
         </p>
       </div>
-      {error ? <p role="alert" className="text-sm text-[#ff9db0]">{error}</p> : null}
+      {error ? (
+        <div role="alert" className="rounded-2xl border border-line-dark bg-indigo p-4">
+          <p className="text-sm text-[#ff9db0]">{error}</p>
+          <button
+            type="button"
+            onClick={() => setRetryTick((t) => t + 1)}
+            className="motion-press mt-3 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan"
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
       {data === null && !error ? <p className="text-silver">Loading…</p> : null}
       {data ? (
         <>
