@@ -3,6 +3,7 @@ import { Inter, Montserrat } from "next/font/google";
 import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
 import { ConsentBanner } from "@/components/ConsentBanner";
+import { SiteChrome } from "@/components/SiteChrome";
 import { OrganizationSchema } from "@/components/Schema";
 import { site } from "@/content/site";
 import "./globals.css";
@@ -58,12 +59,16 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <NavBar />
+        <SiteChrome>
+          <NavBar />
+        </SiteChrome>
         <main id="main" className="flex-1">
           {children}
         </main>
-        <Footer />
-        <ConsentBanner />
+        <SiteChrome>
+          <Footer />
+          <ConsentBanner />
+        </SiteChrome>
         <OrganizationSchema />
       </body>
     </html>

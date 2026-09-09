@@ -97,6 +97,15 @@ Done when:
 
 Not code: DPIA signed off, external pentest booked/passed, WCAG 2.2 AA external audit, processor DPA register complete, Guyana DPO registration status confirmed. Generate the launch checklist from docs/PDR.md §15 acceptance criteria and verify everything automatable.
 
+### M9 — Aurora health app, slice A (added 2026-09-08)
+
+Source: 31 Aug 2026 meeting (Hannah + Stefan). Spec `docs/superpowers/specs/2026-09-08-health-app-design.md`; Plan 1 `docs/superpowers/plans/2026-09-08-health-app-foundation.md`. The HM-Aurora Supabase project gains a `health` schema — the Aurora Digital Health Platform v0 — with pseudonymous patient IDs, RLS, an append-only access log, an Art. 9 consent gate and pg_cron retention jobs; the site gains a mobile-first app at `/app/` (consent → Today → Log sheet). **PDR §11.1 is amended in Plan 2** to name this schema the single source of truth for clinical data until a dedicated EHR exists.
+
+Done when:
+- [ ] `npm run test:rls` proves own-rows-only, consent-gated writes, tamper-proof log, anon locked out
+- [ ] Consent → Today → Log flow passes Playwright + axe at 375 px
+- [ ] Plan 2 delivered: Trends, Record, More (withdraw/export/access history), PWA manifest + service worker, PDR/notice updates
+
 ## 3. Working practices with Claude Code
 
 - Plan mode before every milestone — review the plan, then let it execute.

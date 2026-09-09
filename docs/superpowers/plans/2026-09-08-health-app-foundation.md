@@ -10,7 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-health-app-design.md`. **Plan 2** (written after this plan lands) covers Trends, Record, More (withdraw/resume, access history, FHIR export, units/goals), PWA manifest + service worker + icons, the PDR/privacy-notice/PLAN.md updates, and the remaining e2e coverage.
 
-**Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails.
+**Complete 2026-09-08 — all 16 tasks.** Verified: `npm run verify` (37 unit tests, 54 routes), `npm run test:rls` (37 security checks against the live database), `npm run test:e2e` (7 specs, zero accessibility violations at 375px), plus a manual walk of sign-in → consent → Today → log an urgent reading → close, confirming the audit trail and the retention cascade in the live database.
+
+**Tasks 0–6 detail:** six migrations live on `gmvrkzumvwhrkqzqwcnu` (a fifth splits the pg_cron schedules out so an extension refusal cannot roll back the archive tables; a sixth tightens two grants), `health` is exposed to PostgREST, and `npm run test:rls` passes 37 checks. Before pushing, the whole set plus a 29-step functional exercise was dry-run inside a rolled-back transaction — that run caught a defect two static reviews had missed (see §Review findings below). Live state: 11 tables, 21 policies, 16 functions, 8 triggers, 2 cron jobs, RLS on every table, zero anon grants.
+
+**Review findings folded in (do not regress these):** the audit IP is taken from `cf-connecting-ip`, else the *last* `x-forwarded-for` hop — a client can otherwise forge its own audit IP · `consents.notice_version`/`scope` are length-bounded · lipid ranges widened to lab-realistic bounds · `access_log` is append-only for `service_role` too (no UPDATE/DELETE/TRUNCATE) · `log_app_open`/`log_export` are rate-limited so a client cannot flood the log · `archive_old()` uses explicit column lists and returns a count · every function carries `pg_temp` in `search_path` · one summary audit row replaces per-row cascade noise · `consents.granted_at` defaults to `clock_timestamp()` and `my_status`/`purge_withdrawn` cannot tie.
+
+**Task 10/11 review fixes already applied (Tasks 12–14 build on these):** `logAppOpen(patientId)` takes the patient id and sets its session flag only after the RPC succeeds — an offline open used to mark the session done and silently lose the audit row for good · `updateSettings(patch)` no longer takes a patient id (RLS scopes it) and throws when it matches no row · the clinical queries are compile-checked against `src/lib/supabase/database.types.ts` · wrappers throw real `Error`s · `DEFAULT_SETTINGS` is frozen and copied. The shell below also treats a failed status read as an error with a retry, never as "not consented".
+
+**Deferred to Plan 2 (deliberate):** `profileEntrySchema`. Spec §11 lists it among this file's schemas and `health.profile_entries` is live, but nothing in Plan 1 writes to that table — the Record tab is a stub here and Plan 2 builds its UI. The schema ships with the screen that uses it, so it can be tested against real input rather than in the abstract.
+
+**Spec deviations (deliberate, tiny):** (1) `health.consents` gains a `superseded_at` column so a re-consent on a newer notice version closes the old row without pretending it was withdrawn. (2) The database only enforces `recorded_at` not in the future (+5 min skew); the 30-day backdating limit is client-side, so editing a note on an old row never fails. (3) Lipid ranges are wider than spec §11's original 20–600 (total 20–1000, LDL 5–1000, HDL 5–300, triglycerides 10–5000 mg/dL) because lab panels legitimately report the extremes; spec §11 was amended to match. (4) `access_log` IP capture prefers `cf-connecting-ip`, then the last `x-forwarded-for` hop, then `x-real-ip`, so a client cannot forge its own audit IP.
 
 ---
 
@@ -29,21 +39,21 @@
 
 **Files:** none
 
-- [ ] **Step 1: Create the branch**
+- [x] **Step 1: Create the branch**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && git checkout main && git pull --ff-only && git checkout -b feat/health-app
 ```
 Expected: `Switched to a new branch 'feat/health-app'`
 
-- [ ] **Step 2: Confirm the toolchain and the linked project**
+- [x] **Step 2: Confirm the toolchain and the linked project**
 
 ```bash
 supabase --version && cat supabase/.temp/project-ref && node --version && npm run verify
 ```
 Expected: `2.75.0`, `gmvrkzumvwhrkqzqwcnu`, Node ≥ 20, and verify ends with the Next build summary (no errors).
 
-- [ ] **Step 3: Confirm the Supabase project is awake**
+- [x] **Step 3: Confirm the Supabase project is awake**
 
 ```bash
 TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d); curl -s -H "Authorization: Bearer $TOK" https://api.supabase.com/v1/projects/gmvrkzumvwhrkqzqwcnu | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
@@ -57,7 +67,7 @@ Expected: `ACTIVE_HEALTHY`. If `INACTIVE`, run `curl -s -X POST -H "Authorizatio
 **Files:**
 - Create: `supabase/migrations/20260908100000_health_schema.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- Aurora Digital Health Platform v0 (spec §4, §6).
@@ -84,15 +94,19 @@ comment on table health.patients is
 create table health.consents (
   id uuid primary key default gen_random_uuid(),
   patient_id uuid not null references health.patients (patient_id) on delete cascade,
-  notice_version text not null,
-  scope jsonb not null,
-  granted_at timestamptz not null default now(),
+  notice_version text not null check (length(notice_version) between 1 and 40),
+  scope jsonb not null check (jsonb_typeof(scope) = 'object' and pg_column_size(scope) < 2048),
+  -- clock_timestamp(), not now(): two consents in one transaction must not
+  -- tie, or "the latest consent" becomes ambiguous.
+  granted_at timestamptz not null default clock_timestamp(),
   superseded_at timestamptz,   -- closed by a re-consent on a newer notice version
   withdrawn_at timestamptz,    -- closed by the patient withdrawing
   delete_after timestamptz     -- withdrawn_at + 30 days; purge job acts on it
 );
 create index consents_patient_active
   on health.consents (patient_id) where superseded_at is null and withdrawn_at is null;
+-- my_status() and purge_withdrawn() read the latest consent row.
+create index consents_patient_granted on health.consents (patient_id, granted_at desc, id desc);
 
 -- ── Per-patient settings ────────────────────────────────────────────
 create table health.settings (
@@ -102,6 +116,8 @@ create table health.settings (
   water_goal_ml int not null default 2000 check (water_goal_ml between 500 and 6000),
   updated_at timestamptz not null default now()
 );
+comment on table health.settings is
+  'Seeded by health.grant_consent(); clients UPDATE only — there is no INSERT policy.';
 
 -- ── Clinical readings (one row per measurement) ─────────────────────
 create table health.readings (
@@ -114,17 +130,18 @@ create table health.readings (
   pulse int check (pulse between 25 and 250),
   glucose_mgdl numeric(6,1) check (glucose_mgdl between 20 and 600),
   glucose_context text check (glucose_context in ('fasting','after_meal','random','bedtime')),
-  chol_total_mgdl numeric(6,1) check (chol_total_mgdl between 20 and 600),
-  chol_ldl_mgdl numeric(6,1) check (chol_ldl_mgdl between 20 and 600),
-  chol_hdl_mgdl numeric(6,1) check (chol_hdl_mgdl between 20 and 600),
-  chol_trig_mgdl numeric(6,1) check (chol_trig_mgdl between 20 and 600),
+  -- Lipids come from lab panels: allow the extreme values a nurse most needs to see.
+  chol_total_mgdl numeric(6,1) check (chol_total_mgdl between 20 and 1000),
+  chol_ldl_mgdl numeric(6,1) check (chol_ldl_mgdl between 5 and 1000),
+  chol_hdl_mgdl numeric(6,1) check (chol_hdl_mgdl between 5 and 300),
+  chol_trig_mgdl numeric(6,1) check (chol_trig_mgdl between 10 and 5000),
   entered_unit text check (entered_unit in ('mg/dL','mmol/L')),
   note text check (length(note) <= 300),
   created_at timestamptz not null default now(),
   constraint readings_not_future check (recorded_at <= now() + interval '5 minutes'),
   constraint readings_shape check (
     (kind = 'blood_pressure' and systolic is not null and diastolic is not null
-      and glucose_mgdl is null and glucose_context is null and chol_total_mgdl is null
+      and entered_unit is null and glucose_mgdl is null and glucose_context is null and chol_total_mgdl is null
       and chol_ldl_mgdl is null and chol_hdl_mgdl is null and chol_trig_mgdl is null)
     or (kind = 'glucose' and glucose_mgdl is not null and glucose_context is not null
       and systolic is null and diastolic is null and pulse is null and chol_total_mgdl is null
@@ -190,6 +207,20 @@ create table health.access_log (
   user_agent text
 );
 create index access_log_patient_time on health.access_log (patient_id, at desc);
+comment on table health.access_log is
+  'Append-only audit trail written by security definer functions as the table owner. Never FORCE ROW LEVEL SECURITY here: owner-run inserts have no policy to satisfy and every clinical write would fail.';
+
+-- ── updated_at maintenance ──────────────────────────────────────────
+create or replace function health.touch_updated_at() returns trigger
+language plpgsql set search_path = health, public, pg_temp as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+create trigger settings_touch before update on health.settings
+  for each row execute function health.touch_updated_at();
+create trigger profile_touch before update on health.profile_entries
+  for each row execute function health.touch_updated_at();
 
 -- ── RLS on, table grants (RLS narrows rows; anon gets nothing) ──────
 alter table health.patients enable row level security;
@@ -208,9 +239,12 @@ grant select, insert, update, delete
   to authenticated;
 grant all on all tables in schema health to service_role;
 grant usage, select on all sequences in schema health to service_role;
+-- The audit trail is append-only for everyone, the service key included;
+-- definer functions insert as the table owner and need no grant.
+revoke update, delete on health.access_log from service_role;
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100000_health_schema.sql && git commit -m "feat(health): schema, tables, checks and grants"
@@ -223,18 +257,18 @@ git add supabase/migrations/20260908100000_health_schema.sql && git commit -m "f
 **Files:**
 - Create: `supabase/migrations/20260908100100_health_rls.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- Helpers (spec §7). security definer + fixed search_path so they can
 -- read health.patients/consents regardless of the caller's policies.
 create or replace function health.current_patient_id() returns uuid
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select patient_id from health.patients where user_id = auth.uid()
 $$;
 
 create or replace function health.has_active_consent(pid uuid) returns boolean
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select exists (
     select 1 from health.consents
     where patient_id = pid and superseded_at is null and withdrawn_at is null
@@ -243,19 +277,26 @@ $$;
 
 -- Request metadata from PostgREST ("from where" in the audit log).
 create or replace function health.request_ip() returns inet
-language plpgsql stable as $$
-declare h json; raw text;
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
+declare h json; raw text; hops text[];
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
   if h is null then return null; end if;
-  raw := coalesce(h->>'x-forwarded-for', h->>'x-real-ip', h->>'cf-connecting-ip');
+  -- Prefer the edge-set header a client cannot forge. x-forwarded-for is
+  -- appended to by each proxy, so only its LAST hop is trustworthy.
+  raw := h->>'cf-connecting-ip';
+  if raw is null and h->>'x-forwarded-for' is not null then
+    hops := string_to_array(h->>'x-forwarded-for', ',');
+    raw := hops[array_length(hops, 1)];
+  end if;
+  raw := coalesce(raw, h->>'x-real-ip');
   if raw is null then return null; end if;
-  return trim(split_part(raw, ',', 1))::inet;
+  return trim(raw)::inet;
 exception when others then return null;
 end $$;
 
 create or replace function health.request_user_agent() returns text
-language plpgsql stable as $$
+language plpgsql stable security definer set search_path = health, public, pg_temp as $$
 declare h json;
 begin
   h := nullif(current_setting('request.headers', true), '')::json;
@@ -340,7 +381,7 @@ create policy "access_log: read own" on health.access_log
   for select to authenticated using (patient_id = health.current_patient_id());
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100100_health_rls.sql && git commit -m "feat(health): helper functions and RLS policies"
@@ -353,12 +394,12 @@ git add supabase/migrations/20260908100100_health_rls.sql && git commit -m "feat
 **Files:**
 - Create: `supabase/migrations/20260908100200_health_audit.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- ── Audit trigger (spec §7): every write on a clinical table ────────
 create or replace function health.log_change() returns trigger
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare rec jsonb; pid uuid; rid uuid; role_name text;
 begin
   -- Bulk jobs (archive/purge) log one summary row instead of per-row noise.
@@ -392,26 +433,33 @@ create trigger settings_log after insert or update or delete on health.settings
 
 -- Status for the client guard: patient_id, active consent version, pending deletion.
 create or replace function health.my_status() returns jsonb
-language sql stable security definer set search_path = health, public as $$
+language sql stable security definer set search_path = health, public, pg_temp as $$
   select coalesce((
     select jsonb_build_object(
       'patient_id', p.patient_id,
-      'active_version', (
-        select notice_version from health.consents c
-        where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
-        order by granted_at desc limit 1),
-      'delete_after', (
-        select delete_after from health.consents c
-        where c.patient_id = p.patient_id order by granted_at desc limit 1)
+      'active_version', act.notice_version,
+      -- A pending deletion exists only while there is no active consent:
+      -- re-consenting cancels it (purge_withdrawn skips consenting patients).
+      'delete_after', case when act.notice_version is null then wd.delete_after end
     )
-    from health.patients p where p.user_id = auth.uid()
+    from health.patients p
+    left join lateral (
+      select c.notice_version from health.consents c
+      where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null
+      order by c.granted_at desc limit 1
+    ) act on true
+    left join lateral (
+      select max(c.delete_after) as delete_after from health.consents c
+      where c.patient_id = p.patient_id
+    ) wd on true
+    where p.user_id = auth.uid()
   ), '{}'::jsonb)
 $$;
 
 -- Consent: creates the patient row on first use, supersedes any open
 -- consent, records the new one, seeds settings, logs the event.
 create or replace function health.grant_consent(notice_version text, scope jsonb) returns uuid
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare uid uuid := auth.uid(); pid uuid;
 begin
   if uid is null then raise exception 'not signed in'; end if;
@@ -419,9 +467,8 @@ begin
   select patient_id into pid from health.patients where user_id = uid;
   update health.consents set superseded_at = now()
     where patient_id = pid and superseded_at is null and withdrawn_at is null;
-  -- Re-consenting after a withdrawal cancels the pending deletion.
-  update health.consents set delete_after = null
-    where patient_id = pid and delete_after is not null;
+  -- Re-consenting after a withdrawal cancels the pending deletion because
+  -- purge_withdrawn() keys off the LATEST consent row; history is never rewritten.
   insert into health.consents (patient_id, notice_version, scope)
     values (pid, grant_consent.notice_version, grant_consent.scope);
   insert into health.settings (patient_id) values (pid) on conflict (patient_id) do nothing;
@@ -432,7 +479,7 @@ begin
 end $$;
 
 create or replace function health.withdraw_consent() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
@@ -446,20 +493,29 @@ end $$;
 
 -- One row per browser session: who opened the app, when, from where.
 create or replace function health.log_app_open() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
+  -- One row per session; a misbehaving client cannot flood the log.
+  if exists (select 1 from health.access_log
+             where patient_id = pid and action = 'app_open' and at > now() - interval '1 hour') then
+    return;
+  end if;
   insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
     values (auth.uid(), 'patient', pid, 'app_open', 'app',
             health.request_ip(), health.request_user_agent());
 end $$;
 
 create or replace function health.log_export() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then return; end if;
+  if exists (select 1 from health.access_log
+             where patient_id = pid and action = 'export' and at > now() - interval '1 minute') then
+    return;
+  end if;
   insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
     values (auth.uid(), 'patient', pid, 'export', 'all',
             health.request_ip(), health.request_user_agent());
@@ -473,11 +529,9 @@ grant execute on function
   health.my_status(), health.grant_consent(text, jsonb),
   health.withdraw_consent(), health.log_app_open(), health.log_export()
 to authenticated;
--- The trigger fires for patient writes and service-role writes alike.
-grant execute on function health.log_change() to authenticated, service_role;
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add supabase/migrations/20260908100200_health_audit.sql && git commit -m "feat(health): audit trigger, consent and logging RPCs"
@@ -490,7 +544,7 @@ git add supabase/migrations/20260908100200_health_audit.sql && git commit -m "fe
 **Files:**
 - Create: `supabase/migrations/20260908100300_health_retention.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- ── Archive tables (spec §8): same shape + archived_at; no client policies ──
@@ -512,29 +566,24 @@ grant all on health.readings_archive, health.water_intake_archive, health.exerci
 -- No grants to authenticated: the app never reads archives.
 
 -- ── Purge (used by delete-now and by the 30-day job) ────────────────
-create or replace function health.purge_patient(pid uuid, reason text) returns void
-language plpgsql security definer set search_path = health, public as $$
+create or replace function health.purge_patient(pid uuid) returns void
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 begin
-  perform set_config('health.suppress_log', 'on', true);
-  delete from health.readings_archive where patient_id = pid;
-  delete from health.water_intake_archive where patient_id = pid;
-  delete from health.exercise_sessions_archive where patient_id = pid;
-  delete from health.patients where patient_id = pid;   -- cascades to every live table
-  insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
-    values (auth.uid(), case when auth.uid() is null then 'system' else 'patient' end,
-            pid, reason, 'patients', health.request_ip(), health.request_user_agent());
+  -- Deleting the patient row cascades to every live table; the before-delete
+  -- trigger below removes archive rows and writes the single 'purge' audit row.
+  delete from health.patients where patient_id = pid;
 end $$;
 
 create or replace function health.delete_my_health_data() returns void
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare pid uuid := health.current_patient_id();
 begin
   if pid is null then raise exception 'no health record'; end if;
-  perform health.purge_patient(pid, 'purge');
+  perform health.purge_patient(pid);
 end $$;
 
 create or replace function health.purge_withdrawn() returns int
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 declare r record; n int := 0;
 begin
   for r in
@@ -542,79 +591,113 @@ begin
     where not exists (
       select 1 from health.consents c
       where c.patient_id = p.patient_id and c.superseded_at is null and c.withdrawn_at is null)
-    and exists (
-      select 1 from health.consents c
-      where c.patient_id = p.patient_id and c.delete_after is not null and c.delete_after < now())
+    -- max(): the most recent scheduled deletion governs, and it cannot tie.
+    and (select max(c.delete_after) from health.consents c
+         where c.patient_id = p.patient_id) < now()
   loop
-    perform health.purge_patient(r.patient_id, 'purge');
+    perform health.purge_patient(r.patient_id);
     n := n + 1;
   end loop;
   return n;
 end $$;
 
 -- ── 12-month archive ────────────────────────────────────────────────
-create or replace function health.archive_old() returns void
-language plpgsql security definer set search_path = health, public as $$
+create or replace function health.archive_old() returns int
+language plpgsql security definer set search_path = health, public, pg_temp as $$
+declare n int := 0; m int;
 begin
   perform set_config('health.suppress_log', 'on', true);
 
   with moved as (
     delete from health.readings where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.readings_archive select moved.*, now() from moved returning patient_id
+    insert into health.readings_archive
+      (id, patient_id, kind, recorded_at, systolic, diastolic, pulse, glucose_mgdl, glucose_context,
+       chol_total_mgdl, chol_ldl_mgdl, chol_hdl_mgdl, chol_trig_mgdl, entered_unit, note, created_at, archived_at)
+    select id, patient_id, kind, recorded_at, systolic, diastolic, pulse, glucose_mgdl, glucose_context,
+           chol_total_mgdl, chol_ldl_mgdl, chol_hdl_mgdl, chol_trig_mgdl, entered_unit, note, created_at, now()
+    from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'readings' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'readings' from ins;
+  select count(*) into m from ins;
+  n := n + m;
 
   with moved as (
     delete from health.water_intake where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.water_intake_archive select moved.*, now() from moved returning patient_id
+    insert into health.water_intake_archive (id, patient_id, ml, recorded_at, created_at, archived_at)
+    select id, patient_id, ml, recorded_at, created_at, now() from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'water_intake' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'water_intake' from ins;
+  select count(*) into m from ins;
+  n := n + m;
 
   with moved as (
     delete from health.exercise_sessions where recorded_at < now() - interval '12 months' returning *
   ), ins as (
-    insert into health.exercise_sessions_archive select moved.*, now() from moved returning patient_id
+    insert into health.exercise_sessions_archive
+      (id, patient_id, activity, minutes, intensity, note, recorded_at, created_at, archived_at)
+    select id, patient_id, activity, minutes, intensity, note, recorded_at, created_at, now()
+    from moved returning patient_id
+  ), logged as (
+    insert into health.access_log (actor_role, patient_id, action, resource)
+      select distinct 'system', patient_id, 'archive', 'exercise_sessions' from ins returning 1
   )
-  insert into health.access_log (actor_role, patient_id, action, resource)
-    select distinct 'system', patient_id, 'archive', 'exercise_sessions' from ins;
+  select count(*) into m from ins;
+  n := n + m;
+
+  return n;
 end $$;
 
--- Archive rows have no FK (they must survive nothing — a deleted account
--- takes its archives with it). Cascade them from the patient row.
+-- Archive rows have no FK, so they are removed here when the patient row goes
+-- (delete-now, the 30-day purge, or an account deletion cascading from auth.users).
+-- One summary audit row replaces the per-row noise the cascade would otherwise log.
 create or replace function health.purge_archives_for_patient() returns trigger
-language plpgsql security definer set search_path = health, public as $$
+language plpgsql security definer set search_path = health, public, pg_temp as $$
 begin
+  perform set_config('health.suppress_log', 'on', true);
   delete from health.readings_archive where patient_id = old.patient_id;
   delete from health.water_intake_archive where patient_id = old.patient_id;
   delete from health.exercise_sessions_archive where patient_id = old.patient_id;
+  insert into health.access_log (actor_user_id, actor_role, patient_id, action, resource, ip, user_agent)
+    values (auth.uid(), case when auth.uid() is null then 'system' else 'patient' end,
+            old.patient_id, 'purge', 'patients', health.request_ip(), health.request_user_agent());
   return old;
 end $$;
 create trigger patients_purge_archives before delete on health.patients
   for each row execute function health.purge_archives_for_patient();
 
 revoke execute on function
-  health.purge_patient(uuid, text), health.delete_my_health_data(),
+  health.purge_patient(uuid), health.delete_my_health_data(),
   health.purge_withdrawn(), health.archive_old(), health.purge_archives_for_patient()
 from public, anon;
 grant execute on function health.delete_my_health_data() to authenticated;
--- The RLS proof script and the dashboard run the jobs with the service key.
-grant execute on all functions in schema health to service_role;
+-- The RLS proof script and the dashboard run the two jobs with the service key.
+grant execute on function health.archive_old(), health.purge_withdrawn() to service_role;
+```
 
--- ── Schedules ───────────────────────────────────────────────────────
+- [x] **Step 2: Write the schedules as their own migration** — `supabase/migrations/20260908100400_health_cron.sql` (a pg_cron refusal must not roll back the archive tables):
+
+```sql
+-- ── Schedules (spec §8) — own migration so a pg_cron refusal cannot roll
+-- back the archive tables and purge functions in 20260908100300.
+-- pg_cron runs in UTC: 03:00 UTC is 23:00 GYT the previous evening.
 create extension if not exists pg_cron;
-grant usage on schema cron to postgres;
+do $$ begin
+  execute 'grant usage on schema cron to postgres';
+exception when insufficient_privilege then null; end $$;
 select cron.schedule('health-archive-old', '0 3 1 * *', $$select health.archive_old()$$);
 select cron.schedule('health-purge-withdrawn', '15 3 * * *', $$select health.purge_withdrawn()$$);
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
-git add supabase/migrations/20260908100300_health_retention.sql && git commit -m "feat(health): archive tables, purge and pg_cron jobs"
+git add supabase/migrations/20260908100300_health_retention.sql supabase/migrations/20260908100400_health_cron.sql && git commit -m "feat(health): archive tables, purge and pg_cron jobs"
 ```
 
 ---
@@ -623,21 +706,21 @@ git add supabase/migrations/20260908100300_health_retention.sql && git commit -m
 
 **Files:** none (live project configuration)
 
-- [ ] **Step 1: Push the four migrations**
+- [x] **Step 1: Push the four migrations**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && source .env.secrets && supabase db push -p "$SUPABASE_DB_PASSWORD"
 ```
-Expected: the four `20260908…` migrations listed, then `Finished supabase db push.` If `create extension pg_cron` is refused, enable pg_cron in the Supabase Dashboard (Database → Extensions → pg_cron → enable), then re-run the push.
+Expected: the five `20260908…` migrations listed, then `Finished supabase db push.` If `create extension pg_cron` is refused, enable pg_cron in the Supabase Dashboard (Database → Extensions → pg_cron → enable), then re-run the push.
 
-- [ ] **Step 2: Expose `health` to PostgREST**
+- [x] **Step 2: Expose `health` to PostgREST**
 
 ```bash
 TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d); curl -s -X PATCH -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" https://api.supabase.com/v1/projects/gmvrkzumvwhrkqzqwcnu/postgrest -d '{"db_schema":"public,graphql_public,health"}'
 ```
 Expected: JSON echo whose `db_schema` is `public,graphql_public,health`.
 
-- [ ] **Step 3: Prove anon is locked out and the jobs exist**
+- [x] **Step 3: Prove anon is locked out and the jobs exist**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && set -a && source .env.local && set +a && curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/readings?select=id" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Accept-Profile: health"; echo
@@ -649,7 +732,7 @@ python3 "/private/tmp/claude-501/-Users-stefangravesande-Documents-Projects-Rout
 ```
 Expected: two rows, `health-archive-old` `0 3 1 * *` and `health-purge-withdrawn` `15 3 * * *`.
 
-- [ ] **Step 4: (Only if the scratchpad helper is missing) recreate it**
+- [x] **Step 4: (Only if the scratchpad helper is missing) recreate it**
 
 ```python
 #!/usr/bin/env python3
@@ -679,7 +762,7 @@ except urllib.error.HTTPError as e:
 - Create: `tests/rls/health.mjs`
 - Modify: `package.json` (scripts.test:rls)
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```js
 // Proves the health schema's security posture (spec §15): own-rows only,
@@ -706,8 +789,11 @@ async function makeUser(tag) {
   if (error) throw error;
   return { id: data.user.id, email };
 }
-async function signedIn(user) {
-  const c = createClient(url, anonKey, { auth: { persistSession: false } });
+async function signedIn(user, headers) {
+  const c = createClient(url, anonKey, {
+    auth: { persistSession: false },
+    ...(headers ? { global: { headers } } : {}),
+  });
   const { error } = await c.auth.signInWithPassword({ email: user.email, password: "Test-passw0rd!" });
   if (error) throw error;
   return c;
@@ -716,12 +802,12 @@ const bp = (patient_id, extra = {}) => ({
   patient_id, kind: "blood_pressure", recorded_at: new Date().toISOString(),
   systolic: 128, diastolic: 82, pulse: 72, ...extra,
 });
+const H = (c) => c.schema("health");
 
 const a = await makeUser("a");
 const b = await makeUser("b");
 try {
   const ca = await signedIn(a);
-  const H = (c) => c.schema("health");
 
   // 1. Before consent: reads are empty, writes are refused.
   const pre = await H(ca).from("readings").select("id");
@@ -738,7 +824,7 @@ try {
   const pidA = grant.data;
   const st = await H(ca).rpc("my_status");
   if (st.data && st.data.patient_id === pidA && st.data.active_version === "test-1") ok("my_status reports the active consent");
-  else fail("my_status wrong: " + JSON.stringify(st));
+  else fail("my_status wrong: " + JSON.stringify(st.data));
 
   // 3. Own rows: insert, read, update.
   const ins = await H(ca).from("readings").insert(bp(pidA)).select("id").single();
@@ -763,15 +849,23 @@ try {
   await H(cb).from("readings").update({ note: "tampered" }).eq("id", ins.data.id);
   const check = await H(ca).from("readings").select("note").eq("id", ins.data.id).single();
   if (check.data && check.data.note === "after breakfast") ok("B cannot update A's reading"); else fail("LEAK: B updated A's reading");
+  const bDel = await H(cb).from("readings").delete().eq("id", ins.data.id);
+  const stillThere = await H(ca).from("readings").select("id").eq("id", ins.data.id);
+  if (stillThere.data && stillThere.data.length === 1) ok("B cannot delete A's reading");
+  else fail("LEAK: B deleted A's reading " + JSON.stringify(bDel.error));
   const bOwn = await H(cb).from("readings").insert(bp(pidB));
   if (!bOwn.error) ok("B inserts own reading"); else fail("B insert failed: " + bOwn.error.message);
   const aCount = await H(ca).from("readings").select("id");
   if (aCount.data && aCount.data.length === 1) ok("A still sees exactly own row"); else fail("A sees " + aCount.data?.length);
+  const bStatus = await H(cb).rpc("my_status");
+  if (bStatus.data && bStatus.data.patient_id === pidB) ok("my_status is per-caller"); else fail("my_status leaked across users");
 
-  // 6. Anonymous key: nothing.
+  // 6. Anonymous key: nothing, on tables or RPCs.
   const anon = createClient(url, anonKey, { auth: { persistSession: false } });
   const anonRead = await H(anon).from("readings").select("id");
-  if (anonRead.error || anonRead.data.length === 0) ok("anon cannot read health"); else fail("LEAK: anon read health rows");
+  if (anonRead.error) ok("anon cannot read health"); else fail("LEAK: anon read health rows");
+  const anonRpc = await H(anon).rpc("grant_consent", { notice_version: "x", scope: {} });
+  if (anonRpc.error) ok("anon cannot call health RPCs"); else fail("LEAK: anon called grant_consent");
 
   // 7. Audit log: written by the system, readable by A, untouchable by A.
   await H(ca).rpc("log_app_open");
@@ -781,14 +875,27 @@ try {
   const missing = expectLog.filter((e) => !actions.includes(e));
   if (missing.length === 0) ok("access_log holds consent, settings, insert, update, app_open");
   else fail("access_log missing " + missing.join(", ") + " (have " + actions.join(", ") + ")");
+  if (actions.filter((x) => x === "app_open:app").length === 1) ok("app_open logged once per session");
+  else fail("app_open logged " + actions.filter((x) => x === "app_open:app").length + " times");
   const logIns = await H(ca).from("access_log").insert({ actor_role: "patient", patient_id: pidA, action: "read" });
   if (logIns.error) ok("A cannot write access_log"); else fail("TAMPER: A inserted an access_log row");
   const before = log.data.length;
   await H(ca).from("access_log").delete().eq("patient_id", pidA);
-  const after = await H(ca).from("access_log").select("id");
+  await H(ca).from("access_log").update({ action: "read" }).eq("patient_id", pidA);
+  const after = await H(ca).from("access_log").select("id, action");
   if (after.data && after.data.length === before) ok("A cannot delete access_log rows"); else fail("TAMPER: A deleted log rows");
+  const bLog = await H(cb).from("access_log").select("patient_id");
+  if (bLog.data && !bLog.data.some((r) => r.patient_id === pidA)) ok("B cannot read A's access_log");
+  else fail("LEAK: B read A's access_log");
 
-  // 8. Archive tables are unreachable by patients; archive job moves old rows.
+  // 7b. The audit IP is edge-set, not client-set (spec §7).
+  const forged = await signedIn(a, { "x-forwarded-for": "203.0.113.7" });
+  await H(forged).from("readings").insert(bp(pidA, { systolic: 121, diastolic: 79 }));
+  const ips = await H(admin).from("access_log").select("ip").eq("patient_id", pidA).eq("action", "insert");
+  if (!(ips.data ?? []).some((r) => r.ip === "203.0.113.7")) ok("client cannot forge its audit IP");
+  else fail("TAMPER: client-supplied x-forwarded-for was recorded as the audit IP");
+
+  // 8. Archive tables are unreachable by patients; the archive job moves old rows.
   const arch = await H(ca).from("readings_archive").select("id");
   if (arch.error) ok("A cannot read readings_archive"); else fail("LEAK: A read the archive");
   const old = new Date(); old.setMonth(old.getMonth() - 13);
@@ -797,25 +904,47 @@ try {
   await H(admin).rpc("archive_old");
   const live = await H(ca).from("readings").select("id");
   const archived = await H(admin).from("readings_archive").select("id").eq("patient_id", pidA);
-  if (live.data.length === 1 && archived.data.length === 1) ok("archive_old moved the 13-month-old reading");
+  if (live.data.length === 2 && archived.data.length === 1) ok("archive_old moved the 13-month-old reading");
   else fail(`archive_old: live=${live.data?.length} archived=${archived.data?.length}`);
 
   // 9. Withdrawal blocks new writes and schedules deletion.
   await H(ca).rpc("withdraw_consent");
   const postWd = await H(ca).from("readings").insert(bp(pidA));
   if (postWd.error) ok("withdrawal blocks inserts"); else fail("LEAK: inserted after withdrawal");
+  const postWdUpd = await H(ca).from("readings").update({ note: "later" }).eq("id", ins.data.id).select("note");
+  if (postWdUpd.error || (postWdUpd.data ?? []).length === 0) ok("withdrawal blocks updates");
+  else fail("LEAK: updated after withdrawal");
   const st2 = await H(ca).rpc("my_status");
   if (st2.data && st2.data.active_version === null && st2.data.delete_after) ok("my_status shows pending deletion");
   else fail("my_status after withdrawal wrong: " + JSON.stringify(st2.data));
+
+  // 9b. Re-consent cancels the deletion (regression: a tie on granted_at once
+  //     made my_status keep reporting the withdrawn row's delete_after).
+  await H(ca).rpc("grant_consent", { notice_version: "test-2", scope: { readings: true } });
+  const st3 = await H(ca).rpc("my_status");
+  if (st3.data && st3.data.active_version === "test-2" && st3.data.delete_after === null)
+    ok("re-consent clears the pending deletion");
+  else fail("re-consent left a pending deletion: " + JSON.stringify(st3.data));
+  const purged = await H(admin).rpc("purge_withdrawn");
+  const survives = await H(admin).from("patients").select("patient_id").eq("patient_id", pidA);
+  if (survives.data.length === 1) ok("purge_withdrawn skips a re-consented patient");
+  else fail("PURGED a consenting patient (purge_withdrawn returned " + purged.data + ")");
+  const history = await H(ca).from("consents").select("notice_version");
+  if (history.data && history.data.length === 2) ok("consent history is append-only");
+  else fail("consent history has " + history.data?.length + " rows, expected 2");
 
   // 10. Delete-now purges everything but keeps the audit trail.
   await H(ca).rpc("delete_my_health_data");
   const gone = await H(admin).from("patients").select("patient_id").eq("patient_id", pidA);
   const goneArch = await H(admin).from("readings_archive").select("id").eq("patient_id", pidA);
+  const goneLive = await H(admin).from("readings").select("id").eq("patient_id", pidA);
   const trail = await H(admin).from("access_log").select("action").eq("patient_id", pidA);
-  if (gone.data.length === 0 && goneArch.data.length === 0) ok("purge removed patient, live and archive rows");
-  else fail("purge incomplete");
+  if (gone.data.length === 0 && goneArch.data.length === 0 && goneLive.data.length === 0)
+    ok("purge removed patient, live and archive rows");
+  else fail(`purge incomplete: patients=${gone.data?.length} archive=${goneArch.data?.length} live=${goneLive.data?.length}`);
   if (trail.data.some((r) => r.action === "purge")) ok("access_log keeps the trail incl. purge"); else fail("purge not logged");
+  const bIntact = await H(admin).from("patients").select("patient_id").eq("patient_id", pidB);
+  if (bIntact.data.length === 1) ok("B's record survived A's deletion"); else fail("A's purge took B's record");
 } finally {
   await admin.auth.admin.deleteUser(a.id);
   await admin.auth.admin.deleteUser(b.id);
@@ -823,7 +952,7 @@ try {
 if (process.exitCode) console.error("HEALTH RLS CHECKS FAILED"); else console.log("ALL HEALTH RLS CHECKS PASSED");
 ```
 
-- [ ] **Step 2: Wire the script into `test:rls`**
+- [x] **Step 2: Wire the script into `test:rls`**
 
 In `package.json`, change the `test:rls` line to:
 
@@ -831,14 +960,14 @@ In `package.json`, change the `test:rls` line to:
     "test:rls": "node --env-file=.env.local tests/rls/profiles.mjs && node --env-file=.env.local tests/rls/health.mjs",
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 ```bash
 cd "/Users/stefangravesande/Documents/Projects/HM AURORA/aurora-website" && npm run test:rls
 ```
 Expected: `ALL RLS CHECKS PASSED` then every `✓` line of the health script and `ALL HEALTH RLS CHECKS PASSED`. If a check fails, fix the migration with a new migration file (never edit an applied one), push, re-run.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/rls/health.mjs package.json && git commit -m "test(health): RLS proof for the health schema"
@@ -855,7 +984,7 @@ git add tests/rls/health.mjs package.json && git commit -m "test(health): RLS pr
 - Create: `src/lib/health/ranges.ts`
 - Test: `src/lib/health/ranges.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { test, expect } from "vitest";
@@ -901,12 +1030,12 @@ test("cholesterol bands", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run src/lib/health/ranges.test.ts`
 Expected: FAIL — cannot resolve `@/lib/health/ranges`.
 
-- [ ] **Step 3: Write the types**
+- [x] **Step 3: Write the types**
 
 `src/lib/health/types.ts`:
 
@@ -968,7 +1097,7 @@ export type ExerciseInsert = {
 export type Settings = { glucose_unit: Unit; cholesterol_unit: Unit; water_goal_ml: number };
 ```
 
-- [ ] **Step 4: Write the consent notice content**
+- [x] **Step 4: Write the consent notice content**
 
 `src/content/health-notice.ts`:
 
@@ -1013,7 +1142,7 @@ export const healthNotice = {
 } as const;
 ```
 
-- [ ] **Step 5: Write the reference-range content**
+- [x] **Step 5: Write the reference-range content**
 
 `src/content/health-ranges.ts`:
 
@@ -1061,7 +1190,7 @@ export const urgentMessages = {
 } as const;
 ```
 
-- [ ] **Step 6: Write the band functions**
+- [x] **Step 6: Write the band functions**
 
 `src/lib/health/ranges.ts`:
 
@@ -1126,12 +1255,12 @@ export function triglyceridesBand(mgdl: number): Band {
 }
 ```
 
-- [ ] **Step 7: Run the test**
+- [x] **Step 7: Run the test**
 
 Run: `npx vitest run src/lib/health/ranges.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/health/types.ts src/content/health-notice.ts src/content/health-ranges.ts src/lib/health/ranges.ts src/lib/health/ranges.test.ts && git commit -m "feat(health): types, consent notice content, reference bands"
@@ -1146,7 +1275,7 @@ git add src/lib/health/types.ts src/content/health-notice.ts src/content/health-
 - Create: `src/lib/health/format.ts`
 - Test: `src/lib/health/units.test.ts`, `src/lib/health/format.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `src/lib/health/units.test.ts`:
 
@@ -1215,12 +1344,12 @@ test("name helpers", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `npx vitest run src/lib/health/units.test.ts src/lib/health/format.test.ts`
 Expected: FAIL — modules not found.
 
-- [ ] **Step 3: Write `units.ts`**
+- [x] **Step 3: Write `units.ts`**
 
 ```ts
 import type { Unit } from "./types";
@@ -1248,7 +1377,7 @@ export function formatValue(mgdl: number, unit: Unit, factor: number): string {
 }
 ```
 
-- [ ] **Step 4: Write `format.ts`**
+- [x] **Step 4: Write `format.ts`**
 
 ```ts
 /** Small pure helpers for the app's screens. All take an optional `now`
@@ -1307,12 +1436,12 @@ export function greeting(now: Date = new Date()): string {
 }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npx vitest run src/lib/health/units.test.ts src/lib/health/format.test.ts`
 Expected: 7 passed. (The "12 Aug" case formats in UTC on purpose so the test is timezone-independent; the UI passes real timestamps, and a one-day drift at midnight is acceptable for a "12 Aug" label.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/health/units.ts src/lib/health/format.ts src/lib/health/units.test.ts src/lib/health/format.test.ts && git commit -m "feat(health): unit conversion and formatting helpers"
@@ -1326,7 +1455,7 @@ git add src/lib/health/units.ts src/lib/health/format.ts src/lib/health/units.te
 - Create: `src/lib/validation/health.ts`
 - Test: `src/lib/validation/health.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { test, expect } from "vitest";
@@ -1354,7 +1483,7 @@ test("glucose: converts mmol/L before the range check", () => {
 
 test("cholesterol: total required, optional parts range-checked", () => {
   expect(cholesterolReadingSchema.safeParse({ total: 182, unit: "mg/dL", recordedAt: now() }).success).toBe(true);
-  expect(cholesterolReadingSchema.safeParse({ total: 182, ldl: 900, unit: "mg/dL", recordedAt: now() }).success).toBe(false);
+  expect(cholesterolReadingSchema.safeParse({ total: 182, ldl: 2000, unit: "mg/dL", recordedAt: now() }).success).toBe(false);
   expect(cholesterolReadingSchema.safeParse({ unit: "mg/dL", recordedAt: now() }).success).toBe(false);
 });
 
@@ -1376,12 +1505,12 @@ test("consent requires the box ticked", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run src/lib/validation/health.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the schemas**
+- [x] **Step 3: Write the schemas**
 
 `src/lib/validation/health.ts`:
 
@@ -1406,7 +1535,12 @@ export const recordedAtSchema = z.string().refine((iso) => {
 
 const note = z.string().trim().max(300, "Keep the note under 300 characters.").optional().or(z.literal(""));
 export const unitSchema = z.enum(["mg/dL", "mmol/L"], { error: "Choose a unit." });
-const inMgdlRange = (mgdl: number) => mgdl >= 20 && mgdl <= 600;
+const within = (lo: number, hi: number) => (mgdl: number) => mgdl >= lo && mgdl <= hi;
+const glucoseRange = within(20, 600);
+const totalRange = within(20, 1000);
+const ldlRange = within(5, 1000);
+const hdlRange = within(5, 300);
+const trigRange = within(10, 5000);
 
 export const bpReadingSchema = z
   .object({
@@ -1433,7 +1567,7 @@ export const glucoseReadingSchema = z
     recordedAt: recordedAtSchema,
     note,
   })
-  .refine((r) => inMgdlRange(toMgdl(r.value, r.unit, GLUCOSE_FACTOR)), {
+  .refine((r) => glucoseRange(toMgdl(r.value, r.unit, GLUCOSE_FACTOR)), {
     message: "That reading is outside the range the app accepts (20–600 mg/dL).",
     path: ["value"],
   });
@@ -1451,11 +1585,11 @@ export const cholesterolReadingSchema = z
   })
   .refine(
     (r) =>
-      inMgdlRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR)) &&
-      (r.ldl === undefined || inMgdlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.hdl === undefined || inMgdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) &&
-      (r.triglycerides === undefined || inMgdlRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))),
-    { message: "A value is outside the range the app accepts (20–600 mg/dL).", path: ["total"] },
+      totalRange(toMgdl(r.total, r.unit, CHOLESTEROL_FACTOR)) &&
+      (r.ldl === undefined || ldlRange(toMgdl(r.ldl, r.unit, CHOLESTEROL_FACTOR))) &&
+      (r.hdl === undefined || hdlRange(toMgdl(r.hdl, r.unit, CHOLESTEROL_FACTOR))) &&
+      (r.triglycerides === undefined || trigRange(toMgdl(r.triglycerides, r.unit, TRIGLYCERIDE_FACTOR))),
+    { message: "A value is outside the range the app accepts.", path: ["total"] },
   );
 export type CholesterolReadingInput = z.infer<typeof cholesterolReadingSchema>;
 
@@ -1481,12 +1615,12 @@ export const healthConsentSchema = z.object({
 });
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `npx vitest run src/lib/validation/health.test.ts`
 Expected: 6 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/validation/health.ts src/lib/validation/health.test.ts && git commit -m "feat(health): zod schemas for readings, lifestyle entries and consent"
@@ -1501,7 +1635,7 @@ git add src/lib/validation/health.ts src/lib/validation/health.test.ts && git co
 
 No unit test (network wrappers); the RLS script (Task 6) and the e2e (Task 16) exercise them. Typecheck must pass.
 
-- [ ] **Step 1: Write the client**
+- [x] **Step 1: Write the client**
 
 ```ts
 "use client";
@@ -1621,12 +1755,12 @@ export async function loadToday(): Promise<TodayData> {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/health/client.ts && git commit -m "feat(health): schema client wrappers (status, consent, inserts, today)"
@@ -1641,7 +1775,7 @@ git add src/lib/health/client.ts && git commit -m "feat(health): schema client w
 - Create: `src/components/SiteChrome.tsx`
 - Modify: `src/app/layout.tsx:61-66`
 
-- [ ] **Step 1: Add six icons**
+- [x] **Step 1: Add six icons**
 
 In `src/components/icons.tsx`, extend the union — replace the line `  | "home";` with:
 
@@ -1694,7 +1828,7 @@ and, inside `const paths`, after the `home:` entry (before the closing `};`) add
   ),
 ```
 
-- [ ] **Step 2: Create `SiteChrome`**
+- [x] **Step 2: Create `SiteChrome`**
 
 `src/components/SiteChrome.tsx`:
 
@@ -1712,7 +1846,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 }
 ```
 
-- [ ] **Step 3: Use it in the root layout**
+- [x] **Step 3: Use it in the root layout**
 
 In `src/app/layout.tsx`, add the import `import { SiteChrome } from "@/components/SiteChrome";` after the `ConsentBanner` import, and replace
 
@@ -1740,12 +1874,12 @@ with
         </SiteChrome>
 ```
 
-- [ ] **Step 4: Verify the public site is unchanged**
+- [x] **Step 4: Verify the public site is unchanged**
 
 Run: `npm run verify`
 Expected: green. Then `npm run dev`, open http://localhost:3000/ and confirm nav and footer still render (the `/app` route does not exist yet — that comes next).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/icons.tsx src/components/SiteChrome.tsx src/app/layout.tsx && git commit -m "feat(app): tab icons and a site-chrome switch for /app"
@@ -1765,7 +1899,7 @@ git add src/components/icons.tsx src/components/SiteChrome.tsx src/app/layout.ts
 - Create: `src/app/app/layout.tsx`, `src/app/app/page.tsx`, `src/app/app/consent/page.tsx`
 - Create: `src/app/app/trends/page.tsx`, `src/app/app/record/page.tsx`, `src/app/app/more/page.tsx` (stubs replaced in Plan 2)
 
-- [ ] **Step 1: The app context**
+- [x] **Step 1: The app context**
 
 `src/components/app/AppContext.tsx`:
 
@@ -1795,7 +1929,7 @@ export function useApp(): AppContextValue {
 }
 ```
 
-- [ ] **Step 2: Offline detection**
+- [x] **Step 2: Offline detection**
 
 `src/components/app/OfflineBanner.tsx`:
 
@@ -1832,7 +1966,7 @@ export function OfflineBanner() {
 }
 ```
 
-- [ ] **Step 3: Top bar**
+- [x] **Step 3: Top bar**
 
 `src/components/app/TopBar.tsx`:
 
@@ -1879,7 +2013,7 @@ export function TopBar() {
 }
 ```
 
-- [ ] **Step 4: Tab bar**
+- [x] **Step 4: Tab bar**
 
 `src/components/app/TabBar.tsx`:
 
@@ -1940,7 +2074,7 @@ export function TabBar({ onLog }: { onLog: () => void }) {
 }
 ```
 
-- [ ] **Step 5: The shell (Task 14 replaces this file to add the Log sheet)**
+- [x] **Step 5: The shell (Task 14 replaces this file to add the Log sheet)**
 
 `src/components/app/AppShell.tsx`:
 
@@ -1967,9 +2101,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [status, setStatus] = useState<HealthStatus | undefined>();
+  const [loadFailed, setLoadFailed] = useState(false);
   const [version, setVersion] = useState(0);
 
   const refreshStatus = useCallback(async () => {
+    setLoadFailed(false);
     setStatus(await fetchStatus());
   }, []);
 
@@ -1979,7 +2115,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session) return;
-    refreshStatus().catch(() => setStatus({ patientId: null, activeVersion: null, deleteAfter: null }));
+    // A failed read must NOT be treated as "not consented": that would send a
+    // consented patient back through the consent screen and write a second
+    // consent row. Offer a retry instead.
+    refreshStatus().catch(() => setLoadFailed(true));
   }, [session, refreshStatus]);
 
   const onConsent = pathname.startsWith("/app/consent");
@@ -1989,7 +2128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!status) return;
     if (!consented && !onConsent) router.replace("/app/consent/");
     else if (consented && onConsent) router.replace("/app/");
-    if (consented) logAppOpen().catch(() => undefined);
+    if (consented && status.patientId) logAppOpen(status.patientId).catch(() => undefined);
   }, [status, consented, onConsent, router]);
 
   const openLog = useCallback(() => undefined, []); // replaced in Task 14
@@ -1999,6 +2138,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [status, refreshStatus, openLog, version, bump],
   );
 
+  if (loadFailed) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <p className="text-silver">We couldn&rsquo;t reach your health record.</p>
+        <button type="button" onClick={() => refreshStatus().catch(() => setLoadFailed(true))}
+          className="motion-press mt-4 rounded-full border border-cyan/60 px-4 py-2 text-sm font-semibold text-cyan hover:border-cyan">
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (session === undefined || status === undefined) {
     return <p className="px-4 py-24 text-center text-silver">Loading…</p>;
   }
@@ -2018,7 +2168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 ```
 
-- [ ] **Step 6: Consent screen**
+- [x] **Step 6: Consent screen**
 
 `src/components/app/ConsentScreen.tsx`:
 
@@ -2091,7 +2241,7 @@ export function ConsentScreen() {
 }
 ```
 
-- [ ] **Step 7: Routes**
+- [x] **Step 7: Routes**
 
 `src/app/app/layout.tsx`:
 
@@ -2187,7 +2337,7 @@ export default function MorePage() {
 }
 ```
 
-- [ ] **Step 8: Verify in the browser**
+- [x] **Step 8: Verify in the browser**
 
 Run: `npm run verify` — expected green (`/app`, `/app/consent`, `/app/trends`, `/app/record`, `/app/more` appear in the route list). Then `npm run dev`, sign in at http://localhost:3000/patient-login/ with a real patient account, open http://localhost:3000/app/ and confirm:
 - you land on **Before you start** with no nav/footer;
@@ -2202,7 +2352,7 @@ python3 "/private/tmp/claude-501/-Users-stefangravesande-Documents-Projects-Rout
 ```
 Expected: rows `app_open`/`app`, `insert`/`settings`, `consent_granted`/`consents`, with `has_ip` true and a browser UA prefix.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/components/app src/app/app && git commit -m "feat(app): shell with session/consent guards, tab bar, consent screen"
@@ -2216,7 +2366,7 @@ git add src/components/app src/app/app && git commit -m "feat(app): shell with s
 - Create: `src/components/app/RangeBadge.tsx`, `src/components/app/MetricCard.tsx`, `src/components/app/WaterCard.tsx`, `src/components/app/TodayScreen.tsx`
 - Modify: `src/app/app/page.tsx` (full replacement)
 
-- [ ] **Step 1: RangeBadge**
+- [x] **Step 1: RangeBadge**
 
 ```tsx
 import type { Band } from "@/lib/health/ranges";
@@ -2239,7 +2389,7 @@ export function RangeBadge({ band }: { band: Band }) {
 }
 ```
 
-- [ ] **Step 2: MetricCard**
+- [x] **Step 2: MetricCard**
 
 ```tsx
 import type { Band } from "@/lib/health/ranges";
@@ -2285,7 +2435,7 @@ export function MetricCard({
 }
 ```
 
-- [ ] **Step 3: WaterCard**
+- [x] **Step 3: WaterCard**
 
 ```tsx
 "use client";
@@ -2349,7 +2499,7 @@ export function WaterCard({ ml, goal, onAdd }: { ml: number; goal: number; onAdd
 }
 ```
 
-- [ ] **Step 4: TodayScreen**
+- [x] **Step 4: TodayScreen**
 
 ```tsx
 "use client";
@@ -2453,7 +2603,7 @@ export function TodayScreen() {
 }
 ```
 
-- [ ] **Step 5: Replace the page**
+- [x] **Step 5: Replace the page**
 
 `src/app/app/page.tsx`:
 
@@ -2468,11 +2618,11 @@ export default function AppTodayPage() {
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npm run verify` — green. In the dev server, `/app/` shows the greeting, three empty metric cards ("No reading yet."), the water card at 0 / 2,000 ml; pressing **+250 ml** moves the bar to 250 and a `insert`/`water_intake` row appears in `health.access_log` (query from Task 12 Step 8).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/app/RangeBadge.tsx src/components/app/MetricCard.tsx src/components/app/WaterCard.tsx src/components/app/TodayScreen.tsx src/app/app/page.tsx && git commit -m "feat(app): Today screen with latest readings, bands and water"
@@ -2487,7 +2637,7 @@ git add src/components/app/RangeBadge.tsx src/components/app/MetricCard.tsx src/
 - Create: `src/components/app/forms/shared.tsx`, `BpForm.tsx`, `GlucoseForm.tsx`, `CholesterolForm.tsx`, `WaterForm.tsx`, `ExerciseForm.tsx`
 - Modify: `src/components/app/AppShell.tsx` (full replacement)
 
-- [ ] **Step 1: Focus trap**
+- [x] **Step 1: Focus trap**
 
 `src/components/app/useFocusTrap.ts`:
 
@@ -2524,7 +2674,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
 }
 ```
 
-- [ ] **Step 2: Shared form pieces**
+- [x] **Step 2: Shared form pieces**
 
 `src/components/app/forms/shared.tsx`:
 
@@ -2578,7 +2728,7 @@ export function SaveRow({ busy, error }: { busy: boolean; error?: string }) {
 }
 ```
 
-- [ ] **Step 3: Blood pressure form**
+- [x] **Step 3: Blood pressure form**
 
 `src/components/app/forms/BpForm.tsx`:
 
@@ -2636,7 +2786,7 @@ export function BpForm({ patientId, onSaved }: { patientId: string; onSaved: (in
 }
 ```
 
-- [ ] **Step 4: Glucose form**
+- [x] **Step 4: Glucose form**
 
 `src/components/app/forms/GlucoseForm.tsx`:
 
@@ -2677,7 +2827,7 @@ export function GlucoseForm({
         patient_id: patientId, kind: "glucose", recorded_at: d.recordedAt,
         glucose_mgdl: mgdl, glucose_context: d.context, entered_unit: d.unit, note: d.note || null,
       });
-      if (d.unit !== settings.glucose_unit) await updateSettings(patientId, { glucose_unit: d.unit });
+      if (d.unit !== settings.glucose_unit) await updateSettings({ glucose_unit: d.unit });
       onSaved({ title: `Blood sugar ${d.value} ${d.unit} saved`, band: glucoseBand(mgdl, d.context) });
     } catch {
       setBusy(false);
@@ -2709,7 +2859,7 @@ export function GlucoseForm({
 }
 ```
 
-- [ ] **Step 5: Cholesterol form**
+- [x] **Step 5: Cholesterol form**
 
 `src/components/app/forms/CholesterolForm.tsx`:
 
@@ -2755,7 +2905,7 @@ export function CholesterolForm({
         chol_trig_mgdl: conv(d.triglycerides, TRIGLYCERIDE_FACTOR),
         entered_unit: d.unit, note: d.note || null,
       });
-      if (d.unit !== settings.cholesterol_unit) await updateSettings(patientId, { cholesterol_unit: d.unit });
+      if (d.unit !== settings.cholesterol_unit) await updateSettings({ cholesterol_unit: d.unit });
       onSaved({ title: `Cholesterol ${d.total} ${d.unit} saved`, band: cholesterolBand(total) });
     } catch {
       setBusy(false);
@@ -2786,7 +2936,7 @@ export function CholesterolForm({
 }
 ```
 
-- [ ] **Step 6: Water form**
+- [x] **Step 6: Water form**
 
 `src/components/app/forms/WaterForm.tsx`:
 
@@ -2841,7 +2991,7 @@ export function WaterForm({ patientId, onSaved }: { patientId: string; onSaved: 
 }
 ```
 
-- [ ] **Step 7: Exercise form**
+- [x] **Step 7: Exercise form**
 
 `src/components/app/forms/ExerciseForm.tsx`:
 
@@ -2911,7 +3061,7 @@ export function ExerciseForm({ patientId, onSaved }: { patientId: string; onSave
 }
 ```
 
-- [ ] **Step 8: The sheet**
+- [x] **Step 8: The sheet**
 
 `src/components/app/LogSheet.tsx`:
 
@@ -3042,94 +3192,51 @@ export function LogSheet({
 }
 ```
 
-- [ ] **Step 9: Wire the sheet into the shell (full replacement of `AppShell.tsx`)**
+- [x] **Step 9: Wire the sheet into the shell — a surgical edit, NOT a replacement**
+
+`AppShell.tsx` has absorbed a round of review fixes since this plan was written (a consent-route render guard, focus management on tab change, a retry branch, session on the context, DOM order for focus). **Do not replace the file.** Make exactly these four changes:
+
+1. Add the imports:
 
 ```tsx
-"use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth/session";
-import { fetchStatus, logAppOpen, type HealthStatus } from "@/lib/health/client";
-import { HEALTH_NOTICE_VERSION } from "@/content/health-notice";
 import type { LogKind } from "@/lib/health/types";
-import { AppProvider, type AppContextValue } from "./AppContext";
-import { TopBar } from "./TopBar";
-import { TabBar } from "./TabBar";
-import { OfflineBanner } from "./OfflineBanner";
 import { LogSheet } from "./LogSheet";
+```
 
-/**
- * App shell for /app (spec §9.1): session guard → consent guard → one
- * app_open audit event per browser session → top bar, tab bar, offline
- * banner, and the Log sheet. Guards are UX only; RLS is the boundary.
- */
-export function AppShell({ children }: { children: React.ReactNode }) {
-  const session = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [status, setStatus] = useState<HealthStatus | undefined>();
-  const [version, setVersion] = useState(0);
+2. Add the sheet's state beside the existing `version` state:
+
+```tsx
   const [log, setLog] = useState<{ open: boolean; kind: LogKind }>({ open: false, kind: "blood_pressure" });
+```
 
-  const refreshStatus = useCallback(async () => {
-    setStatus(await fetchStatus());
-  }, []);
+3. Replace the placeholder callback
 
-  useEffect(() => {
-    if (session === null) router.replace("/patient-login/");
-  }, [session, router]);
+```tsx
+  const openLog = useCallback(() => undefined, []); // replaced in Task 14
+```
 
-  useEffect(() => {
-    if (!session) return;
-    refreshStatus().catch(() => setStatus({ patientId: null, activeVersion: null, deleteAfter: null }));
-  }, [session, refreshStatus]);
+with
 
-  const onConsent = pathname.startsWith("/app/consent");
-  const consented = status?.activeVersion === HEALTH_NOTICE_VERSION;
-
-  useEffect(() => {
-    if (!status) return;
-    if (!consented && !onConsent) router.replace("/app/consent/");
-    else if (consented && onConsent) router.replace("/app/");
-    if (consented) logAppOpen().catch(() => undefined);
-  }, [status, consented, onConsent, router]);
-
+```tsx
   const openLog = useCallback((kind: LogKind = "blood_pressure") => setLog({ open: true, kind }), []);
   const closeLog = useCallback(() => setLog((l) => ({ ...l, open: false })), []);
-  const bump = useCallback(() => setVersion((v) => v + 1), []);
-  const value = useMemo<AppContextValue | null>(
-    () => (status ? { status, refreshStatus, openLog, version, bump } : null),
-    [status, refreshStatus, openLog, version, bump],
-  );
+```
 
-  if (session === undefined || status === undefined) {
-    return <p className="px-4 py-24 text-center text-silver">Loading…</p>;
-  }
-  if (session === null || !value) return null;
-  if (!consented && !onConsent) return null;
+4. Render the sheet inside the `AppProvider`, immediately after the content wrapper's closing `</div>` and before the wrapper `</div>`:
 
-  return (
-    <AppProvider value={value}>
-      <div className="min-h-screen md:pl-24">
-        <TopBar />
-        <OfflineBanner />
-        <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">{children}</div>
-        {consented ? <TabBar onLog={() => openLog()} /> : null}
+```tsx
         {consented && status.patientId ? (
           <LogSheet open={log.open} kind={log.kind} patientId={status.patientId} onClose={closeLog} onSaved={bump} />
         ) : null}
-      </div>
-    </AppProvider>
-  );
-}
 ```
 
-- [ ] **Step 10: Verify**
+Leave everything else in the file exactly as it is. In particular do not touch the `consented === onConsent` guard, the focus effect, the `loadFailed` branch, or the DOM order of `TabBar` / `TopBar` / content — each of those fixes a defect a review found.
+
+- [x] **Step 10: Verify**
 
 Run: `npm run verify` — green. In the dev server on a 375 px-wide viewport: tap **+** → the sheet slides up with the BP form focused; enter 128 / 82 → **Save** → "Blood pressure 128/82 saved" with an **Elevated** badge; **Done** → the Today card shows 128/82 · Elevated. Try 185/125 → the urgent message appears. Switch to **Sugar**, choose mmol/L, enter 5.8 fasting → saved; Today shows **5.8 mmol/L** (the unit preference was remembered). Escape closes the sheet and focus returns to the + button.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/components/app && git commit -m "feat(app): Log sheet with BP, sugar, cholesterol, water and exercise forms"
@@ -3143,7 +3250,7 @@ git add src/components/app && git commit -m "feat(app): Log sheet with BP, sugar
 - Modify: `src/app/account/patient/PatientDashboard.tsx:56` (insert before the Profile card)
 - Modify: `docs/PLAN.md` (new milestone note before `## 3. Working practices with Claude Code`)
 
-- [ ] **Step 1: Add the card**
+- [x] **Step 1: Add the card**
 
 In `PatientDashboard.tsx`, directly above `<Card>` … `<h2 className="text-xl">Profile</h2>`, insert:
 
@@ -3158,7 +3265,7 @@ In `PatientDashboard.tsx`, directly above `<Card>` … `<h2 className="text-xl">
       </Card>
 ```
 
-- [ ] **Step 2: Add the PLAN.md note**
+- [x] **Step 2: Add the PLAN.md note**
 
 Insert before the line `## 3. Working practices with Claude Code`:
 
@@ -3173,7 +3280,7 @@ Done when:
 - [ ] Plan 2 delivered: Trends, Record, More (withdraw/export/access history), PWA manifest + service worker, PDR/notice updates
 ```
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 Run: `npm run verify` — green; the dashboard shows the new card first.
 
@@ -3188,7 +3295,7 @@ git add src/app/account/patient/PatientDashboard.tsx docs/PLAN.md && git commit 
 **Files:**
 - Create: `tests/e2e/env.ts`, `tests/e2e/health-app.spec.ts`
 
-- [ ] **Step 1: Env loader (Playwright does not read `.env.local`)**
+- [x] **Step 1: Env loader (Playwright does not read `.env.local`)**
 
 `tests/e2e/env.ts`:
 
@@ -3209,7 +3316,7 @@ export function loadEnvLocal(): void {
 }
 ```
 
-- [ ] **Step 2: The spec**
+- [x] **Step 2: The spec**
 
 `tests/e2e/health-app.spec.ts`:
 
@@ -3303,19 +3410,19 @@ test("keyboard: Escape closes the sheet and focus returns to the opener", async 
 });
 ```
 
-- [ ] **Step 3: Run the e2e**
+- [x] **Step 3: Run the e2e**
 
 Run: `lsof -ti:3000 | xargs kill -9 2>/dev/null; npm run test:e2e -- tests/e2e/health-app.spec.ts`
 Expected: 2 passed (the second test reuses the consent from the first because both run in the same worker against the same seeded user; if Playwright parallelises them, set `test.describe.configure({ mode: "serial" })` at the top of the file).
 
-- [ ] **Step 4: Full verification**
+- [x] **Step 4: Full verification**
 
 ```bash
 npm run verify && npm run test:rls && npm run test:e2e
 ```
 Expected: verify green; `ALL RLS CHECKS PASSED` + `ALL HEALTH RLS CHECKS PASSED`; every e2e spec green (existing specs still pass — the site chrome is unchanged outside `/app`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/e2e/env.ts tests/e2e/health-app.spec.ts && git commit -m "test(app): e2e consent → Today → Log sheet with axe at 375px"

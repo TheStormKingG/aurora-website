@@ -63,8 +63,8 @@ A build satisfies this PRD when:
 
 Health data is special-category data. Slice A relies on **explicit consent**, captured once per notice version, before any clinical row exists.
 
-- **Screen `/app/consent/`** (plain language, readability grade ~8) states: what is stored (readings, water and exercise entries, health-record entries), why (your own monitoring; care by Aurora nurses; diet and exercise planning), where (Aurora's database, encrypted, in the cloud), how long (12 months online, then archived; deleted 30 days after you withdraw), who can see it (you; in future, Aurora staff on your care team, with every access logged), and how to withdraw (one tap in More). One checkbox, one button: "I agree — open the app".
-- **Content** lives in `src/content/health-notice.ts` with `HEALTH_NOTICE_VERSION = "1.0-2026-09-08"` and a `scope` array (`readings`, `lifestyle`, `record`). This is separate from the site-wide `NOTICE_VERSION` in `src/lib/consent.ts`; the site privacy notice gains a matching "Health data in the Aurora app" section (§13).
+- **Screen `/app/consent/`** (plain language, readability grade ~8) states, in seven short sections: **what is stored** (readings, water and exercise entries, health-record entries); **why** (your own monitoring; care by Aurora nurses; diet and exercise planning); **where it is kept** (Aurora's database, running on Supabase in Brazil — naming the processor and the location satisfies Art. 13(1)(f) — encrypted, filed under a code rather than a name); **who can see it** (you; in future, Aurora staff on your care team, with every access logged); **how long** (12 months online, then archived; deleted 30 days after you withdraw); **if you say no** (the account and booking still work, no health data is held, and you can turn it on later); and **your choice** (download, delete or withdraw from More at any time — and, per Art. 7(3), withdrawal stops further use but does not undo lawful processing already carried out). One checkbox, one button: "I agree — open the app".
+- **Content** lives in `src/content/health-notice.ts` with `HEALTH_NOTICE_VERSION = "1.0-2026-09-08"` and a `scope` object (`{readings, lifestyle, record}` — an object, not an array; the `consents.scope` column CHECKs `jsonb_typeof(scope) = 'object'`). This is separate from the site-wide `NOTICE_VERSION` in `src/lib/consent.ts`; the site privacy notice gains a matching "Health data in the Aurora app" section (§13).
 - **Storage:** RPC `health.grant_consent(notice_version, scope)` atomically creates the `patients` row if missing, inserts a `consents` row, creates default `settings`, and logs the event.
 - **Enforcement:** every write policy includes `health.has_active_consent(patient_id)`. With no active consent, inserts and updates fail at the database.
 - **Re-consent:** when `HEALTH_NOTICE_VERSION` is newer than the patient's active consent version, the app shows the consent screen again before any clinical screen.
@@ -136,7 +136,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 **Helper functions** (`stable`, `security definer`, `set search_path = health, public`):
 - `health.current_patient_id()` → the caller's `patient_id` or null.
 - `health.has_active_consent(pid uuid)` → exists a `consents` row for `pid` with `withdrawn_at is null`.
-- `health.request_ip()` / `health.request_user_agent()` → read PostgREST's `request.headers` (`x-forwarded-for`, falling back to `x-real-ip`; `user-agent`).
+- `health.request_ip()` / `health.request_user_agent()` → read PostgREST's `request.headers` (`cf-connecting-ip`, else the last `x-forwarded-for` hop, else `x-real-ip` — a client cannot forge its own audit IP; `user-agent`).
 
 **RLS policies (authenticated role only; nothing for anon):**
 - `patients`: select own (`user_id = auth.uid()`); insert only via `grant_consent`.
@@ -147,7 +147,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 
 **Audit writers:**
 - Trigger `health.log_change()` (after insert / update / delete on readings, water_intake, exercise_sessions, profile_entries, settings) inserts an `access_log` row: actor `auth.uid()`, role `patient`, action = the operation, resource = table name, resource_id, ip, user agent.
-- RPC `health.log_app_open()` — the app shell calls it once per browser session (sessionStorage flag). This is the "who, when, from where" record for the session (D8).
+- RPC `health.log_app_open()` — the app shell calls it once per browser session (a per-patient sessionStorage flag, set only after the write lands, so an offline open retries rather than losing the row). This is the "who, when, from where" record for the session (D8). The database additionally refuses a second `app_open` for the same patient within two minutes — a backstop against a broken client flooding the log, narrow enough that a genuine second session or a second device still records.
 - RPCs `grant_consent`, `withdraw_consent`, `delete_my_health_data`, `log_export()` each write their own row.
 
 **Patient-facing view:** More → "Who has accessed my data" lists `access_log` rows newest first: date/time, who ("You" for own actions; staff name and role in slice B), what, device (user agent, shortened) and IP.
@@ -203,11 +203,11 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 | HDL | Low <40 · Protective ≥60 | NCEP ATP III |
 | Triglycerides | Normal <150 · Borderline 150–199 · High 200–499 · Very high ≥500 | NCEP ATP III |
 
-**Urgent message** (editable content): "This reading is very high. If you have chest pain, shortness of breath, weakness, vision changes or trouble speaking, seek emergency care now. Otherwise rest for five minutes, measure again, and contact your care team today." (Low glucose variant: "…take fast-acting sugar now and re-test in 15 minutes…"). No AI decision support (PDR §14) — fixed thresholds only.
+**Urgent messages** (drafted here, not clinically approved — see §18 item 1; all three live in `src/content/health-ranges.ts` and can be edited without a code change): "This reading is very high. If you have chest pain, shortness of breath, weakness, vision changes or trouble speaking, seek emergency care now. Otherwise rest for five minutes, measure again, and contact your care team today." (Low glucose variant: "…take fast-acting sugar now and re-test in 15 minutes…"). No AI decision support (PDR §14) — fixed thresholds only.
 
 ## 11. Validation (client zod + database CHECK)
 
-`src/lib/validation/health.ts` — `bpReadingSchema`, `glucoseReadingSchema`, `cholesterolReadingSchema`, `waterSchema`, `exerciseSchema`, `profileEntrySchema`, `healthConsentSchema`. Plausibility ranges (mirrored as CHECK constraints): systolic 60–260, diastolic 30–160, pulse 25–250, glucose 20–600 mg/dL, cholesterol values 20–600 mg/dL, water 50–3,000 ml per entry, exercise 1–600 min. `recorded_at` ≤ now and ≥ now − 30 days. Unit conversion in `src/lib/health/units.ts`: glucose ×18.016, cholesterol ×38.67, triglycerides ×88.57 (mmol/L → mg/dL), rounded to 1 decimal; the entered unit is recorded.
+`src/lib/validation/health.ts` — `bpReadingSchema`, `glucoseReadingSchema`, `cholesterolReadingSchema`, `waterSchema`, `exerciseSchema`, `profileEntrySchema`, `healthConsentSchema`. Plausibility ranges (mirrored as CHECK constraints): systolic 60–260, diastolic 30–160, pulse 25–250, glucose 20–600 mg/dL, total cholesterol 20–1,000, LDL 5–1,000, HDL 5–300, triglycerides 10–5,000 mg/dL (lab panels legitimately report the extremes), water 50–3,000 ml per entry, exercise 1–600 min. `recorded_at` ≤ now and ≥ now − 30 days. **Where each bound lives:** the database enforces only "not in the future" (+5 min clock skew); the 30-day backdating floor is client-side, so editing the note on an older row never fails a constraint. The client's future tolerance is 2 minutes — deliberately inside the database's 5, so a fast browser clock produces a readable message rather than a raw constraint violation. Unit conversion in `src/lib/health/units.ts`: glucose ×18.016, cholesterol ×38.67, triglycerides ×88.57 (mmol/L → mg/dL), rounded to 1 decimal; the entered unit is recorded.
 
 ## 12. Data export — FHIR R4
 
@@ -251,7 +251,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 
 **Documents to update in the same change:** `docs/PDR.md` §11.1 (add: "Until a dedicated EHR exists, the HM-Aurora Supabase `health` schema is the Aurora Digital Health Platform v0 and the single source of truth for clinical data; the website's `public` schema stores none. The FHIR boundary is kept through the export format and the schema separation."); the Privacy Centre notice (new "Health data in the Aurora app" section, version bump to 1.1); `docs/PLAN.md` (new milestone M9 — Aurora health app, slice A).
 
-**Follow-ups (not slice A):** column-level encryption (pgsodium) for readings and record entries; offline logging queue; patient MFA; staff console (slice B); reminders (would need a new consent scope).
+**Follow-ups (not slice A):** column-level encryption (pgsodium) for readings and record entries; offline logging queue; patient MFA; staff console (slice B); reminders (would need a new consent scope); **automatic EXECUTE revocation for new `health` functions** — every function is explicitly revoked from `public, anon` today and a security review confirmed no gap, but that pattern is manual: `alter default privileges` demonstrably did not cover a function created later in the same migration, so the next `security definer` function added here could ship callable by anyone unless someone remembers the revoke. An event trigger on `ddl_command_end`, or an assertion in the RLS proof script, would make it structural.
 
 ## 14. Pages, routes and files
 
@@ -289,9 +289,12 @@ Nurse/staff console and any staff access · diet/exercise plans and lab results 
 
 ## 18. Open items — inputs required from Aurora
 
-1. Clinician review of the reference thresholds and urgent-message wording (§10) before launch.
+1. Clinician review of the reference thresholds and urgent-message wording (§10) before launch. Three specifics to decide:
+   - **Low blood pressure has no band.** A reading of 85/45 currently shows "Normal" in green. §10's AHA table has no hypotension row; if Aurora wants one, give the threshold and the wording.
+   - **The high-glucose urgent message is drafted by us**, not taken from a source (the low-glucose and blood-pressure texts follow standard advice). Approve or replace it.
+   - **LDL, HDL and triglyceride bands ship unused in slice A** — nothing displays them until the Trends detail view in slice B — so they reach patients only after this review.
 2. Confirm mg/dL as the default unit for Guyana meters (D5).
-3. Approve the consent text (§5) and the privacy-notice section (§13).
+3. Approve the consent text (§5) and the privacy-notice section (§13). A data-protection review of the drafted text raised three additions to consider: naming the processor and hosting location (the text says only "in the cloud"; the data sits in Supabase, which is an Art. 13(1)(f) transfer point), stating that withdrawal does not affect processing already carried out lawfully (Art. 7(3)), and saying what happens if the patient declines. The "Why" paragraph is also the one sentence in the notice above the plain-language target and should be split in three.
 4. DPIA sign-off (§13).
 5. Confirm the 30-day withdrawal grace period (D9) and that 12-month online retention applies to water and exercise entries too (D10).
 6. Access-log retention period (SOP).
