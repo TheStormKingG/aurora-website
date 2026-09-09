@@ -5,18 +5,11 @@ import { Card } from "@/components/Card";
 import { EcgDivider } from "@/components/EcgDivider";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
+import { ServicesOverview } from "@/components/ServicesOverview";
 import { StepsIgnition } from "@/components/StepsIgnition";
 import { Icon } from "@/components/icons";
 import { news } from "@/content/news";
-import { services } from "@/content/services";
 import { site } from "@/content/site";
-
-const phaseBadge: Record<number, string> = {
-  1: "border-cyan/50 text-cyan",
-  2: "border-silver/40 text-silver",
-  3: "border-silver/40 text-silver",
-  4: "border-silver/40 text-silver",
-};
 
 export default function HomePage() {
   const highlights = news.slice(0, 3);
@@ -111,32 +104,7 @@ export default function HomePage() {
             </div>
           </Reveal>
 
-          <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map((s, i) => (
-              <Reveal as="li" key={s.slug} index={i % 4}>
-                <Link href={`/services/${s.slug}`} className="group block h-full rounded-2xl">
-                  <Card glow className="h-full">
-                    <div className="flex h-full flex-col">
-                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-cyan/30 bg-navy text-cyan shadow-[0_0_18px_rgba(43,217,245,0.15)]">
-                        <Icon name={s.icon} className="h-6 w-6" />
-                      </span>
-                      <h3 className="mt-5 text-lg leading-snug text-starlight group-hover:text-cyan">
-                        {s.navLabel}
-                      </h3>
-                      <p className="mt-2 flex-1 text-sm leading-relaxed text-silver">
-                        {s.tagline}
-                      </p>
-                      <span
-                        className={`mt-5 inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider ${phaseBadge[s.phase]}`}
-                      >
-                        {s.phase === 1 ? "Available now" : `Phase ${s.phase}`}
-                      </span>
-                    </div>
-                  </Card>
-                </Link>
-              </Reveal>
-            ))}
-          </ul>
+          <ServicesOverview />
         </div>
       </section>
 
