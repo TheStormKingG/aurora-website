@@ -117,7 +117,27 @@ test("profile entry: category, label bounds, optional detail and date", () => {
 test("profile entry: a date must be a real past-or-present day", () => {
   const ok = { category: "surgery", label: "Appendectomy", isCurrent: false };
   expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "2019-04-02" }).success).toBe(true);
-  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "" }).success).toBe(true);
   expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "not-a-date" }).success).toBe(false);
   expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "2999-01-01" }).success).toBe(false);
+  // The shape regex alone can't tell 31 February isn't real — `new Date`
+  // would silently roll it into March without the round-trip check.
+  expect(profileEntrySchema.safeParse({ ...ok, occurredOn: "2026-02-31" }).success).toBe(false);
+});
+
+test("profile entry: occurredOn normalises '', null and omission to null, the column's own cleared state", () => {
+  // A cleared <input type="date"> sends "", the column is nullable, and
+  // Postgres rejects "" for a date column (22007) — all three inputs must
+  // parse successfully to the same null, not to three different things.
+  const ok = { category: "surgery", label: "Appendectomy", isCurrent: false };
+  const empty = profileEntrySchema.safeParse({ ...ok, occurredOn: "" });
+  expect(empty.success).toBe(true);
+  if (empty.success) expect(empty.data.occurredOn).toBeNull();
+
+  const nulled = profileEntrySchema.safeParse({ ...ok, occurredOn: null });
+  expect(nulled.success).toBe(true);
+  if (nulled.success) expect(nulled.data.occurredOn).toBeNull();
+
+  const omitted = profileEntrySchema.safeParse(ok);
+  expect(omitted.success).toBe(true);
+  if (omitted.success) expect(omitted.data.occurredOn).toBeNull();
 });

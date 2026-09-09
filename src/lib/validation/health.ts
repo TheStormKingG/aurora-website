@@ -131,11 +131,25 @@ export const profileEntrySchema = z.object({
   }),
   label: z.string().trim().min(1, "Enter a name.").max(120, "Keep it under 120 characters."),
   detail: z.string().trim().max(500, "Keep the detail under 500 characters.").nullish(),
+  // `occurred_on date` is nullable with no CHECK. `""` is how a cleared
+  // `<input type="date">` arrives; normalise it — and an omitted or
+  // explicit-null value — to `null`, the one cleared state both the
+  // column and `detail`'s `.nullish()` sibling use, rather than forward a
+  // value Postgres rejects with 22007. The shape regex alone accepted
+  // "2026-02-31" because `new Date` silently rolls it to March 3; round-trip
+  // the string through Date and back to catch that.
   occurredOn: z
     .string()
-    .refine((d) => d === "" || (/^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T00:00:00`) <= new Date()),
-      "Enter a real date, today or earlier.")
-    .optional(),
+    .nullish()
+    .transform((d) => (d == null || d === "" ? null : d))
+    .refine(
+      (d) =>
+        d === null ||
+        (/^\d{4}-\d{2}-\d{2}$/.test(d) &&
+          new Date(`${d}T00:00:00`).toISOString().slice(0, 10) === d &&
+          new Date(`${d}T00:00:00`) <= new Date()),
+      "Enter a real date, today or earlier.",
+    ),
   isCurrent: z.boolean().default(true),
 });
 export type ProfileEntryInput = z.infer<typeof profileEntrySchema>;
