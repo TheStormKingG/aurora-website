@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
 import { fetchStatus, logAppOpen, type HealthStatus } from "@/lib/health/client";
@@ -32,6 +32,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<HealthStatus | undefined>();
   const [loadFailed, setLoadFailed] = useState(false);
   const [version, setVersion] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const skipFocus = useRef(true);
 
   const refreshStatus = useCallback(async () => {
     setLoadFailed(false);
@@ -59,6 +61,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     else if (consented && onConsent) router.replace("/app/");
     if (consented && status.patientId) logAppOpen(status.patientId).catch(() => undefined);
   }, [status, consented, onConsent, router]);
+
+  // C3 / spec §9.1: move focus to the new screen's heading on tab change —
+  // every /app screen renders exactly one h1, so finding it here covers
+  // all of them without wiring each screen separately. Skip the first
+  // mount so an ordinary page load doesn't steal focus from the caller.
+  useEffect(() => {
+    if (skipFocus.current) {
+      skipFocus.current = false;
+      return;
+    }
+    const heading = contentRef.current?.querySelector<HTMLElement>("h1");
+    if (!heading) return;
+    heading.tabIndex = -1; // focusable without joining the tab order
+    heading.focus();
+  }, [pathname]);
 
   const openLog = useCallback(() => undefined, []); // replaced in Task 14
   const bump = useCallback(() => setVersion((v) => v + 1), []);
@@ -94,7 +111,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen md:pl-24">
         <TopBar />
         <OfflineBanner />
-        <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">{children}</div>
+        <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6">
+          {children}
+        </div>
         {consented ? <TabBar onLog={() => openLog()} /> : null}
       </div>
     </AppProvider>
