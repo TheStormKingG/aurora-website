@@ -50,9 +50,8 @@ export const footerNav: { heading: string; items: NavItem[] }[] = [
   {
     heading: "Care",
     items: [
-      { label: "Our Services", href: "/services" },
       { label: "Book an Appointment", href: "/book" },
-      { label: "Request a Home Visit", href: "/book/home-visit" },
+      { label: "Our Services", href: "/services" },
       { label: "Telemedicine", href: "/telemedicine" },
       { label: "Patient Portal", href: "/patient-login" },
     ],
@@ -80,7 +79,6 @@ export const footerNav: { heading: string; items: NavItem[] }[] = [
     items: [
       { label: "Privacy Centre", href: "/privacy-centre" },
       { label: "Privacy Notice", href: "/privacy-centre/notice" },
-      { label: "Cookie Policy", href: "/privacy-centre/cookies" },
       { label: "Consent Preferences", href: "/privacy-centre/preferences" },
       { label: "Your Data Rights", href: "/privacy-centre/rights-request" },
     ],
