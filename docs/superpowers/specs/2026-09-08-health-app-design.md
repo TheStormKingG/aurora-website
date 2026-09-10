@@ -249,6 +249,18 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 | Access log (incl. IP, user agent) | Accountability (PDR §11.3) | Art. 6(1)(c)/(f) | Secondary personal data | Patient-visible; retention set by SOP; no client writes |
 | Consent records | Proof of consent (Art. 7) | Art. 6(1)(c) | — | Versioned; withdrawal recorded |
 
+**Open question the DPIA must answer — re-consent on "Resume tracking" (added 2026-09-10, from the Plan 2 security review):**
+
+Withdrawing consent starts a 30-day window in which the patient can resume before their health data is deleted. The resume control lives on the More screen and calls `grant_consent` directly, and More renders only the notice's "Your choice" section — not the full Art. 9(2)(a) text the patient saw when they first consented.
+
+Two things follow, and the DPIA should record a determination on each rather than leave it to the implementation:
+
+1. **Is re-consent from an abbreviated notice valid?** The patient has read the full notice once, and the withdrawal they are reversing was their own act. That may well satisfy "freely given, specific, informed and unambiguous" (Art. 4(11)) — but it is a judgement, not a given, and it should be written down either way.
+
+2. **What happens if the notice changes while a patient is withdrawn?** This is the sharper case. `grantConsent()` records whatever `HEALTH_NOTICE_VERSION` holds at the moment it runs, so a patient who withdrew under version 1.0 and resumes after a bump to 1.1 has consent recorded against text they have never been shown. This cannot happen today — `HEALTH_NOTICE_VERSION` is unchanged since launch, and a currently-consented patient is re-prompted through the full gate when it moves — but it becomes live the first time the health notice is revised. If the DPIA's answer to (1) is "yes, the short form is enough", the resume path still needs to fall back to the full gate whenever the stored consent version is older than the current one.
+
+Not a security defect: the review found no vulnerability, and the database enforces consent correctly in every case. It is a consent-quality question, which is exactly what a DPIA is for.
+
 **Documents to update in the same change:** `docs/PDR.md` §11.1 (add: "Until a dedicated EHR exists, the HM-Aurora Supabase `health` schema is the Aurora Digital Health Platform v0 and the single source of truth for clinical data; the website's `public` schema stores none. The FHIR boundary is kept through the export format and the schema separation."); the Privacy Centre notice (new "Health data in the Aurora app" section, version bump to 1.1); `docs/PLAN.md` (new milestone M9 — Aurora health app, slice A).
 
 **Follow-ups (not slice A):** column-level encryption (pgsodium) for readings and record entries; offline logging queue; patient MFA; staff console (slice B); reminders (would need a new consent scope); **automatic EXECUTE revocation for new `health` functions** — every function is explicitly revoked from `public, anon` today and a security review confirmed no gap, but that pattern is manual: `alter default privileges` demonstrably did not cover a function created later in the same migration, so the next `security definer` function added here could ship callable by anyone unless someone remembers the revoke. An event trigger on `ddl_command_end`, or an assertion in the RLS proof script, would make it structural.
