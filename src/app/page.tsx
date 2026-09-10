@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
@@ -8,25 +9,27 @@ import { ServicesOverview } from "@/components/ServicesOverview";
 import { StepsIgnition } from "@/components/StepsIgnition";
 import { Icon } from "@/components/icons";
 import { site } from "@/content/site";
+import { asset } from "@/lib/asset";
 
 export default function HomePage() {
   return (
     <>
       {/* ── Hero (PDR §5: hero, booking CTA, trust indicators) ────── */}
       <AuroraHero size="home">
-        <div className="max-w-3xl">
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <div className="max-w-2xl">
           <p className="eyebrow reveal" style={{ "--reveal-i": 0 } as React.CSSProperties}>
             {site.tagline}
           </p>
           <h1
-            className="reveal mt-5 text-4xl leading-[1.08] sm:text-6xl lg:text-7xl"
+            className="reveal mt-5 text-4xl leading-[1.08] sm:text-5xl lg:text-6xl"
             style={{ "--reveal-i": 1 } as React.CSSProperties}
           >
             Healthcare that <span className="text-chrome">comes to you</span> — and a health
             record that lasts a lifetime.
           </h1>
           <p
-            className="reveal mt-6 max-w-2xl text-lg leading-relaxed text-silver sm:text-xl"
+            className="reveal mt-6 max-w-xl text-lg leading-relaxed text-silver sm:text-xl"
             style={{ "--reveal-i": 2 } as React.CSSProperties}
           >
             Mobile clinics on your street. Home visits when you can&rsquo;t travel. One
@@ -44,8 +47,26 @@ export default function HomePage() {
               <Icon name="home" className="h-5 w-5" />
               Request a home visit
             </Button>
+            </div>
           </div>
 
+          {/* Pexels licence: free for commercial use, no attribution
+              required, but it forbids implying that people in the
+              imagery endorse the product. So this is atmosphere, and the
+              alt text describes the scene rather than casting anyone as
+              an Aurora patient. No `.reveal` here on purpose: this is
+              the LCP element and should paint, not fade in. */}
+          <Image
+            src={asset("/photos/hero-care-at-home.jpg")}
+            alt="A woman and an older man sitting together at home, looking at a phone."
+            width={1400}
+            height={933}
+            priority
+            /* Portrait crop: the source is 3:2, and a landscape frame
+               floated as a 327px thumbnail beside a 700px text column.
+               5/6 makes the asset hold its half of the composition. */
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+          />
         </div>
       </AuroraHero>
 
