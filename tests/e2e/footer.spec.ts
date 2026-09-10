@@ -14,17 +14,9 @@ import { site } from "../../src/content/site";
  * phone clears it with room to spare.
  */
 
-/**
- * Reduced motion is the deck's documented fallback: the page renders as
- * ordinary document flow. These assertions are about content and
- * geometry rather than the deck, so they run in that mode — which also
- * means the fallback itself is under test. Deck behaviour is covered in
- * deck.spec.ts.
- */
-
 const SMALLEST_PHONE = { width: 375, height: 667 };
 
-test.use({ viewport: SMALLEST_PHONE, contextOptions: { reducedMotion: "reduce" } });
+test.use({ viewport: SMALLEST_PHONE });
 
 test("footer fits one screen on the smallest supported phone", async ({ page }) => {
   await page.goto("/");

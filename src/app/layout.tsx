@@ -66,13 +66,7 @@ export default function RootLayout({
           {children}
         </main>
         <SiteChrome>
-          {/* Hidden by CSS when a <Deck> is driving the viewport; the
-              deck renders the footer as its final slide. display:none
-              also drops it from the a11y tree, so exactly one
-              contentinfo landmark is ever exposed. */}
-          <div data-site-footer>
-            <Footer />
-          </div>
+          <Footer />
           <ConsentBanner />
         </SiteChrome>
         <OrganizationSchema />

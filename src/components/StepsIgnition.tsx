@@ -50,7 +50,7 @@ export function StepsIgnition({ steps }: { steps: IgnitionStep[] }) {
   }, []);
 
   return (
-    <ol ref={ref} data-deck-pair className="mx-auto mt-14 grid max-w-5xl gap-10 sm:grid-cols-3">
+    <ol ref={ref} className="mx-auto mt-14 grid max-w-5xl gap-10 sm:grid-cols-3">
       {steps.map((item, i) => (
         <li
           key={item.step}

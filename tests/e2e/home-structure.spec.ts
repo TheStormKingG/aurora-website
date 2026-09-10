@@ -10,16 +10,6 @@ import { test, expect } from "@playwright/test";
  * page. Cutting nav items is only safe while that holds.
  */
 
-/**
- * Reduced motion is the deck's documented fallback: the page renders as
- * ordinary document flow. These assertions are about content and
- * geometry rather than the deck, so they run in that mode — which also
- * means the fallback itself is under test. Deck behaviour is covered in
- * deck.spec.ts.
- */
-
-test.use({ contextOptions: { reducedMotion: "reduce" } });
-
 const DROPPED_FROM_NAV = [
   { label: "Health Resources", href: "/resources/" },
   { label: "News & Programmes", href: "/news/" },
@@ -36,13 +26,12 @@ test("header carries at most six items", async ({ page }) => {
   await expect(bar.getByRole("link", { name: "Book Appointment" })).toBeVisible();
 });
 
-test("home page is five content sections", async ({ page }) => {
+test("home page is four content sections", async ({ page }) => {
   await page.goto("/");
   const sections = page.locator("main section");
-  await expect(sections).toHaveCount(5);
+  await expect(sections).toHaveCount(4);
   for (const heading of [
     "Eight pillars of care, one connected system",
-    "Coming to your community",
     "Care in three simple steps",
     "Your health story belongs to you",
   ]) {

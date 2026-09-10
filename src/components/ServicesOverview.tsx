@@ -37,25 +37,16 @@ function GroupLabel({ children }: { children: string }) {
   );
 }
 
-/**
-  * `part` lets the two halves become separate slides in deck mode, where
-  * the combined section was 1089px against an 828px track. On a scrolling
-  * page it renders whole, as before.
-  */
-export function ServicesOverview({ part = "all" }: { part?: "all" | "available" | "roadmap" }) {
-  const showAvailable = part !== "roadmap";
-  const showRoadmap = part !== "available";
+export function ServicesOverview() {
   return (
     <>
-      {showAvailable ? (
-      <>
       <Reveal className="mt-12">
         <GroupLabel>Available now</GroupLabel>
       </Reveal>
       <Reveal>
         <ServicePlatformPanel as="h4" className="mt-4" />
       </Reveal>
-      <ul data-deck-pair className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {available.map((s, i) => (
           <Reveal as="li" key={s.slug} index={i % 4}>
             <article className="group relative flex h-full flex-col rounded-2xl border border-line-dark bg-indigo p-6 transition-colors duration-300 hover:border-cyan/50">
@@ -88,11 +79,7 @@ export function ServicesOverview({ part = "all" }: { part?: "all" | "available" 
         ))}
       </ul>
 
-      </>
-      ) : null}
 
-      {showRoadmap ? (
-      <>
       <Reveal className="mt-14">
         <GroupLabel>On the roadmap</GroupLabel>
       </Reveal>
@@ -124,8 +111,6 @@ export function ServicesOverview({ part = "all" }: { part?: "all" | "available" 
           </Reveal>
         ))}
       </ul>
-      </>
-      ) : null}
     </>
   );
 }

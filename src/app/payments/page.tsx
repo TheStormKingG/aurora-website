@@ -5,8 +5,6 @@ import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { site } from "@/content/site";
-import { Deck } from "@/components/deck/Deck";
-import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Online Payments",
@@ -16,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PaymentsPage() {
   return (
-    <Deck>
+    <>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -59,7 +57,6 @@ export default function PaymentsPage() {
           </p>
         </div>
       </section>
-      <Footer />
-    </Deck>
+    </>
   );
 }

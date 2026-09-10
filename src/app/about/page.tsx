@@ -6,8 +6,6 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { asset } from "@/lib/asset";
 import { site } from "@/content/site";
-import { Deck } from "@/components/deck/Deck";
-import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -44,24 +42,14 @@ const phases = [
 
 export default function AboutPage() {
   return (
-    <Deck>
+    <>
       <AuroraHero>
-        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
-          <SectionHeading
-            as="h1"
-            eyebrow="About us"
-            title="Care that reaches people. A record that lasts a lifetime."
-            lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
-          />
-          <Image
-            src={asset("/photos/pregnancy.jpg")}
-            alt="A woman walking through her neighbourhood on a bright day."
-            width={1400}
-            height={934}
-            priority
-            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
-          />
-        </div>
+        <SectionHeading
+          as="h1"
+          eyebrow="About us"
+          title="Care that reaches people. A record that lasts a lifetime."
+          lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
+        />
       </AuroraHero>
 
       {/* Mission & philosophy — light long-form */}
@@ -204,7 +192,6 @@ export default function AboutPage() {
           </ol>
         </div>
       </section>
-      <Footer />
-    </Deck>
+    </>
   );
 }

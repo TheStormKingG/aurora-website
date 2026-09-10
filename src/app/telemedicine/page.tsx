@@ -4,8 +4,6 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
-import { Deck } from "@/components/deck/Deck";
-import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Telemedicine",
@@ -15,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function TelemedicinePage() {
   return (
-    <Deck>
+    <>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -106,7 +104,6 @@ export default function TelemedicinePage() {
           </p>
         </div>
       </section>
-      <Footer />
-    </Deck>
+    </>
   );
 }

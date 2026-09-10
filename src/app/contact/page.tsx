@@ -6,8 +6,6 @@ import { Icon } from "@/components/icons";
 import { locations } from "@/content/locations";
 import { site } from "@/content/site";
 import { ContactForm } from "./ContactForm";
-import { Deck } from "@/components/deck/Deck";
-import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -17,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <Deck>
+    <>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -44,11 +42,6 @@ export default function ContactPage() {
             </div>
           </Card>
 
-        </div>
-      </section>
-
-      <section className="bg-navy">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
             <Card>
               <h2 className="text-xl">Direct lines</h2>
@@ -107,7 +100,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-      <Footer />
-    </Deck>
+    </>
   );
 }
