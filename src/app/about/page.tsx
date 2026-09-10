@@ -44,12 +44,22 @@ export default function AboutPage() {
   return (
     <>
       <AuroraHero>
-        <SectionHeading
-          as="h1"
-          eyebrow="About us"
-          title="Care that reaches people. A record that lasts a lifetime."
-          lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
-        />
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <SectionHeading
+            as="h1"
+            eyebrow="About us"
+            title="Care that reaches people. A record that lasts a lifetime."
+            lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
+          />
+          <Image
+            src={asset("/photos/pregnancy.jpg")}
+            alt="A woman walking through her neighbourhood on a bright day."
+            width={1400}
+            height={934}
+            priority
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+          />
+        </div>
       </AuroraHero>
 
       {/* Mission & philosophy — light long-form */}

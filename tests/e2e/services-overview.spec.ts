@@ -7,18 +7,25 @@ import { injectAxe, checkA11y } from "axe-playwright";
  * service's `phase`, the page silently moves it between groups. These
  * tests pin the split and the heading outline it depends on.
  *
- * KNOWN GAP in the axe pass on "/": the StepsIgnition labels only fail
- * contrast once they are lit, which needs them scrolled into view. Lit,
- * they inherit `.section-light .eyebrow` = #0e8fae on #f5f8fc = 3.54:1,
- * below the 4.5:1 AA threshold — as does EVERY eyebrow on every light
- * section. That is a brand-token question (PDR §4.2/§12), not a services
- * one, so it is reported rather than patched here, and this test does
- * not scroll far enough to catch it. Tighten this once the token moves.
+ * The axe pass below walks the whole page before running, so it covers
+ * elements in their FINAL state. That matters: the StepsIgnition labels
+ * and every light-section eyebrow only reach their real colour once lit,
+ * and until `--aurora-link-on-light` was darkened to #0a6f88 (5.41:1)
+ * they sat at 3.54:1 — a failure a top-of-page-only scan never saw.
  */
 
 for (const path of ["/", "/services"]) {
   test(`no axe violations on ${path}`, async ({ page }) => {
     await page.goto(path);
+    // Walk the page so scroll-revealed and "ignited" elements settle into
+    // their final colours before anything is measured.
+    await page.evaluate(async () => {
+      for (let y = 0; y < document.body.scrollHeight; y += 300) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 40));
+      }
+    });
+    await page.waitForTimeout(1200);
     await injectAxe(page);
     await checkA11y(page, undefined, { detailedReport: false });
   });
