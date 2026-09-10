@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
@@ -6,6 +7,7 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { ServicePlatformPanel } from "@/components/ServicePlatformPanel";
 import { Icon } from "@/components/icons";
 import { services } from "@/content/services";
+import { asset } from "@/lib/asset";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -26,12 +28,24 @@ export default function ServicesPage() {
   return (
     <>
       <AuroraHero>
-        <SectionHeading
-          as="h1"
-          eyebrow="Services"
-          title="Eight pillars of care"
-          lede="Every pillar is a doorway into the same connected system: book once, and your care — mobile, in-centre, or virtual — builds one lifelong health record."
-        />
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <div>
+          <SectionHeading
+            as="h1"
+            eyebrow="Services"
+            title="Eight pillars of care"
+            lede="Every pillar is a doorway into the same connected system: book once, and your care — mobile, in-centre, or virtual — builds one lifelong health record."
+          />
+          </div>
+          <Image
+            src={asset("/photos/services-care.jpg")}
+            alt="Two clinicians in white coats working together over a patient's notes."
+            width={1000}
+            height={1500}
+            priority
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+          />
+        </div>
       </AuroraHero>
 
       {/* Grouped by availability rather than badged with it: the phase

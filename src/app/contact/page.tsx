@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -6,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { locations } from "@/content/locations";
 import { site } from "@/content/site";
 import { ContactForm } from "./ContactForm";
+import { asset } from "@/lib/asset";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -17,12 +19,24 @@ export default function ContactPage() {
   return (
     <>
       <AuroraHero>
-        <SectionHeading
-          as="h1"
-          eyebrow="Contact us"
-          title="Talk to the Aurora team"
-          lede="Questions, partnerships, careers, or bringing a mobile clinic to your community — we reply within two working days."
-        />
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <div>
+          <SectionHeading
+            as="h1"
+            eyebrow="Contact us"
+            title="Talk to the Aurora team"
+            lede="Questions, partnerships, careers, or bringing a mobile clinic to your community — we reply within two working days."
+          />
+          </div>
+          <Image
+            src={asset("/photos/contact-team.jpg")}
+            alt="Two Aurora clinicians standing together, one holding a clipboard."
+            width={1200}
+            height={800}
+            priority
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+          />
+        </div>
       </AuroraHero>
 
       <section className="bg-navy">

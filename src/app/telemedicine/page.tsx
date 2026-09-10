@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
+import { asset } from "@/lib/asset";
 
 export const metadata: Metadata = {
   title: "Telemedicine",
@@ -15,21 +17,36 @@ export default function TelemedicinePage() {
   return (
     <>
       <AuroraHero>
-        <SectionHeading
-          as="h1"
-          eyebrow="Telemedicine"
-          title="A consultation, wherever you are"
-          lede="Talk to an Aurora clinician by phone or video for follow-ups, results reviews, prescriptions renewals, and advice — without the journey."
-        />
-        <div className="mt-8 flex flex-wrap gap-4">
-          <Button href="/book?service=mobile-healthcare" size="lg">
-            <Icon name="calendar" className="h-5 w-5" />
-            Book a consultation
-          </Button>
-          <Button href="/patient-login" size="lg" variant="secondary">
-            <Icon name="lock" className="h-5 w-5" />
-            Join via Patient Portal
-          </Button>
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <div>
+          <SectionHeading
+            as="h1"
+            eyebrow="Telemedicine"
+            title="A consultation, wherever you are"
+            lede="Talk to an Aurora clinician by phone or video for follow-ups, results reviews, prescriptions renewals, and advice — without the journey."
+          />
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Button href="/book?service=mobile-healthcare" size="lg">
+              <Icon name="calendar" className="h-5 w-5" />
+              Book a consultation
+            </Button>
+            <Button href="/patient-login" size="lg" variant="secondary">
+              <Icon name="lock" className="h-5 w-5" />
+              Join via Patient Portal
+            </Button>
+          </div>
+          </div>
+          <Image
+            src={asset("/photos/telemedicine-consult.jpg")}
+            alt="A clinician in a white coat greeting someone on a video call on her phone."
+            width={1200}
+            height={800}
+            priority
+            /* The phone is the subject here — a centred 5/6 crop cut it out of
+               frame and with it the whole "consultation, wherever you are"
+               read. Wider crop, anchored left, keeps it. */
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-left shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)]"
+          />
         </div>
       </AuroraHero>
 
