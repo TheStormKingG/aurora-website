@@ -38,8 +38,21 @@ export function DownloadMyData({ label = "Download my data" }: { label?: string 
       a.remove();
       URL.revokeObjectURL(url);
       const count = bundle.entry.length - 1; // minus the Patient entry (spec §12)
-      setDone(`Downloaded ${count.toLocaleString("en-GB")} record${count === 1 ? "" : "s"}.`);
-      await logExport().catch(() => undefined);
+      // The export itself must not be blocked by the audit write: Art. 20
+      // portability is the patient's right, and refusing it because our
+      // own logging failed would be the wrong trade. But a silent
+      // swallow left the access history — which this app offers as a
+      // guarantee — quietly incomplete, so say so instead.
+      const logged = await logExport().then(
+        () => true,
+        () => false
+      );
+      const summary = `Downloaded ${count.toLocaleString("en-GB")} record${count === 1 ? "" : "s"}.`;
+      setDone(
+        logged
+          ? summary
+          : `${summary} This download could not be added to your access history.`
+      );
     } catch {
       setError("Couldn't build your download. Check your connection and try again.");
     } finally {

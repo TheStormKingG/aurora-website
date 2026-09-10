@@ -7,7 +7,8 @@
  * its response is never stored. Only same-origin static assets and shell
  * HTML are cached.
  */
-const VERSION = "aurora-v1";
+const PREFIX = "aurora-";
+const VERSION = `${PREFIX}v1`;
 const SHELL = `${VERSION}-shell`;
 
 self.addEventListener("install", (event) => {
@@ -18,7 +19,15 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))),
+      Promise.all(
+        keys
+          // Only ever tidy up OUR OWN older caches. On GitHub Pages
+          // project sites every repo shares one origin, so dropping
+          // every key that is not the current version wiped the caches
+          // belonging to unrelated projects on the same domain.
+          .filter((k) => k.startsWith(PREFIX) && !k.startsWith(VERSION))
+          .map((k) => caches.delete(k)),
+      ),
     ).then(() => self.clients.claim()),
   );
 });

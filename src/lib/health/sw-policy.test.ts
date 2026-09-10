@@ -33,6 +33,16 @@ type FakeEvent = {
 function loadWorker() {
   const handlers = new Map<string, Handler>();
   const cachePuts: string[] = [];
+  const deleted: string[] = [];
+  // A GitHub Pages project site shares one origin with every other repo
+  // on the account, so the cache list a real activate sees includes
+  // caches this app did not create.
+  const existingCaches = [
+    "aurora-v1-shell",
+    "aurora-v0-shell",
+    "preqal-v3-assets",
+    "workbox-precache-v2-https://thestormkingg.github.io/some-other-repo/",
+  ];
   const cache = {
     match: vi.fn(async () => undefined),
     put: vi.fn(async (req: { url: string } | string) => {
@@ -47,8 +57,11 @@ function loadWorker() {
     addEventListener: (type: string, fn: Handler) => handlers.set(type, fn),
     caches: {
       open: vi.fn(async () => cache),
-      keys: vi.fn(async () => []),
-      delete: vi.fn(async () => true),
+      keys: vi.fn(async () => existingCaches),
+      delete: vi.fn(async (k: string) => {
+        deleted.push(k);
+        return true;
+      }),
       match: vi.fn(async () => undefined),
     },
     fetch: vi.fn(async () => ({ ok: true, clone: () => ({}) })),
@@ -64,7 +77,7 @@ function loadWorker() {
     URL,
     Promise,
   });
-  return { handlers, cachePuts, cache, self };
+  return { handlers, cachePuts, cache, self, deleted, existingCaches };
 }
 
 function fire(handlers: Map<string, Handler>, url: string, mode = "cors", method = "GET") {
@@ -132,5 +145,28 @@ describe("service worker caching policy", () => {
   it("handles same-origin navigations", () => {
     const responded = fire(worker.handlers, `${ORIGIN}/app/trends/`, "navigate");
     expect(responded).toHaveLength(1);
+  });
+});
+
+describe("service worker cache housekeeping", () => {
+  it("tidies up only its own older caches, never a neighbour's", async () => {
+    const worker = loadWorker();
+    const waits: unknown[] = [];
+    worker.handlers.get("activate")?.({
+      request: { url: "", method: "GET" },
+      respondWith: () => undefined,
+      waitUntil: (v) => waits.push(v),
+    });
+    await Promise.all(waits);
+
+    // Its own superseded cache goes.
+    expect(worker.deleted).toContain("aurora-v0-shell");
+    // The current one stays.
+    expect(worker.deleted).not.toContain("aurora-v1-shell");
+    // And nothing belonging to another project on the shared origin is
+    // touched — deleting those was the defect this guards.
+    for (const foreign of worker.existingCaches.filter((k) => !k.startsWith("aurora-"))) {
+      expect(worker.deleted, `${foreign} must survive`).not.toContain(foreign);
+    }
   });
 });
