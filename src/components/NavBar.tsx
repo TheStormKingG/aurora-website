@@ -51,14 +51,26 @@ export function NavBar() {
             className="flex shrink-0 items-center gap-3"
             aria-label={`${site.name} — home`}
           >
-            <Image
-              src={asset("/brand/hm-aurora-logo.png")}
-              alt=""
-              width={1000}
-              height={276}
-              priority
-              className="h-auto w-[180px] max-w-full"
-            />
+            {/* The gloss sweep is masked by the logo's own alpha, so the
+                mask needs the same basePath-prefixed URL next/image gets.
+                CSS cannot call asset(), hence the custom property. */}
+            <span
+              className="logo-shine"
+              style={
+                {
+                  "--logo-shine-src": `url(${asset("/brand/hm-aurora-logo.png")})`,
+                } as React.CSSProperties
+              }
+            >
+              <Image
+                src={asset("/brand/hm-aurora-logo.png")}
+                alt=""
+                width={1000}
+                height={276}
+                priority
+                className="h-auto w-[180px] max-w-full"
+              />
+            </span>
             <span className="sr-only">{site.name}</span>
           </Link>
 
@@ -147,7 +159,7 @@ export function NavBar() {
       >
         <nav aria-label="Mobile" className="mx-auto max-w-7xl px-6 py-8">
           <ul className="flex flex-col gap-1">
-            {[{ label: "Home", href: "/" }, ...primaryNav].map((item, i) => (
+            {primaryNav.map((item, i) => (
               <li key={item.href} className="reveal" style={{ "--reveal-i": i } as React.CSSProperties}>
                 <Link
                   href={item.href}
