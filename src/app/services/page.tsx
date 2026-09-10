@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
+import { ServicePlatformPanel } from "@/components/ServicePlatformPanel";
 import { Icon } from "@/components/icons";
 import { services } from "@/content/services";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -13,9 +15,18 @@ export const metadata: Metadata = {
     "Eight pillars of care: mobile healthcare, chronic disease prevention, maternal health, child nutrition and development, community wellness centres, active ageing, early childhood, and the Aurora Digital Health Platform.",
 };
 
+const PLATFORM_SLUG = "digital-health-platform";
+
+const available = services.filter(
+  (s) => s.phase === 1 && s.slug !== PLATFORM_SLUG,
+);
+const roadmap = services
+  .filter((s) => s.phase > 1)
+  .sort((a, b) => a.phase - b.phase);
+
 export default function ServicesPage() {
   return (
-    <>
+    <Deck>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -25,51 +36,114 @@ export default function ServicesPage() {
         />
       </AuroraHero>
 
-      <section className="bg-navy">
+      {/* Grouped by availability rather than badged with it: the phase
+          pill on all eight cards said nothing on the five it repeated,
+          and buried the one distinction that matters — what you can
+          book today. */}
+      <section className="bg-navy" aria-labelledby="available-heading">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-          <ul className="grid gap-6 md:grid-cols-2">
-            {services.map((s) => (
+          <h2
+            id="available-heading"
+            className="font-heading text-sm font-semibold text-silver"
+          >
+            Available now
+          </h2>
+          <ServicePlatformPanel className="mt-4" />
+        </div>
+      </section>
+
+      <section className="bg-navy" aria-labelledby="pillars-heading">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+          <h2 id="pillars-heading" className="font-heading text-sm font-semibold text-silver">
+            The four you can book today
+          </h2>
+          <ul className="mt-6 grid gap-6 md:grid-cols-2">
+            {available.map((s) => (
               <li key={s.slug}>
-                <Card glow className="h-full">
-                  <div className="flex h-full flex-col">
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="inline-flex h-13 w-13 items-center justify-center rounded-xl border border-cyan/30 bg-navy p-3 text-cyan shadow-[0_0_18px_rgba(43,217,245,0.15)]">
-                        <Icon name={s.icon} className="h-7 w-7" />
-                      </span>
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider ${
-                          s.phase === 1 ? "border-cyan/50 text-cyan" : "border-silver/40 text-silver"
-                        }`}
+                <article className="group relative flex h-full flex-col rounded-2xl border border-line-dark bg-indigo p-6 transition-colors duration-300 hover:border-cyan/50 sm:p-8">
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      name={s.icon}
+                      className="h-6 w-6 shrink-0 text-cyan"
+                    />
+                    <h3 className="text-xl leading-snug transition-colors duration-300 group-hover:text-cyan">
+                      <Link
+                        href={`/services/${s.slug}`}
+                        className="after:absolute after:inset-0 after:content-['']"
                       >
-                        {s.phaseLabel}
-                      </span>
-                    </div>
-                    <h2 className="mt-5 text-2xl leading-snug">
-                      <Link href={`/services/${s.slug}`} className="hover:text-cyan">
                         {s.name}
                       </Link>
-                    </h2>
-                    <p className="eyebrow mt-2 !text-xs !normal-case !tracking-normal !text-silver">
-                      {s.tagline}
-                    </p>
-                    <p className="mt-4 flex-1 text-base leading-relaxed text-silver">{s.summary}</p>
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <Button href={`/services/${s.slug}`} size="sm" variant="secondary">
-                        Learn more <Icon name="arrow" className="h-4 w-4" />
-                      </Button>
-                      {s.bookable ? (
-                        <Button href={`/book?service=${s.slug}`} size="sm">
-                          Book now
-                        </Button>
-                      ) : null}
-                    </div>
+                    </h3>
                   </div>
-                </Card>
+                  {/* The tagline is a voice line, not a second heading:
+                      body face, starlight, regular weight. Two bold
+                      lines stacked read as a repeated title. */}
+                  <p className="mt-4 text-base leading-relaxed text-starlight">{s.tagline}</p>
+                  <p className="mt-3 flex-1 text-base leading-relaxed text-silver">
+                    {s.summary}
+                  </p>
+                  {s.bookable ? (
+                    /* One action per card. The card itself is the
+                       "learn more" link, so a second button saying so
+                       would be the same intent twice. */
+                    <Button
+                      href={`/book?service=${s.slug}`}
+                      className="relative z-10 mt-6 w-fit"
+                    >
+                      Book now
+                    </Button>
+                  ) : null}
+                </article>
               </li>
             ))}
           </ul>
         </div>
       </section>
-    </>
+
+      <section className="bg-navy pb-16" aria-labelledby="roadmap-heading">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <h2
+            id="roadmap-heading"
+            className="font-heading text-sm font-semibold text-silver"
+          >
+            On the roadmap
+          </h2>
+          <p className="mt-2 max-w-2xl text-base leading-relaxed text-silver">
+            Not open yet. Each one extends the same record you start building
+            today.
+          </p>
+          <ul className="mt-6 border-b border-line-dark">
+            {roadmap.map((s) => (
+              <li key={s.slug}>
+                <Link
+                  href={`/services/${s.slug}`}
+                  className="group grid gap-3 border-t border-line-dark py-6 md:grid-cols-[7rem_1fr_1.2fr] md:items-baseline md:gap-8"
+                >
+                  <span className="font-heading text-sm font-semibold text-silver">
+                    Phase {s.phase}
+                  </span>
+                  <span>
+                    <span className="block font-heading text-lg font-bold text-starlight transition-colors duration-300 group-hover:text-cyan">
+                      {s.name}
+                    </span>
+                    <span className="mt-1 block text-base text-silver">
+                      {s.tagline}
+                    </span>
+                  </span>
+                  <span className="flex items-start gap-4 text-base leading-relaxed text-silver">
+                    <span className="flex-1">{s.summary}</span>
+                    <Icon
+                      name="arrow"
+                      className="mt-1 h-4 w-4 shrink-0 text-silver transition-transform duration-300 group-hover:translate-x-1 group-hover:text-cyan"
+                    />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+      <Footer />
+    </Deck>
   );
 }

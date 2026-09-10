@@ -29,14 +29,18 @@ export type NavItem = {
   description?: string;
 };
 
-/** Primary navigation — PDR §5 approved sitemap. */
+/**
+ * Primary navigation — PDR §5 approved sitemap, thinned to what a
+ * visitor needs in order to decide (what we do, who we are, how to
+ * reach us). Health Resources, News and Careers moved to the footer's
+ * Learn column, where all three already lived, so nothing is orphaned.
+ * Telemedicine stays: /services covers the eight pillars and does not
+ * link to it, so the footer would be its only entry point.
+ */
 export const primaryNav: NavItem[] = [
-  { label: "About Us", href: "/about" },
   { label: "Services", href: "/services" },
   { label: "Telemedicine", href: "/telemedicine" },
-  { label: "Health Resources", href: "/resources" },
-  { label: "News", href: "/news" },
-  { label: "Careers", href: "/careers" },
+  { label: "About Us", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -50,9 +54,8 @@ export const footerNav: { heading: string; items: NavItem[] }[] = [
   {
     heading: "Care",
     items: [
-      { label: "Our Services", href: "/services" },
       { label: "Book an Appointment", href: "/book" },
-      { label: "Request a Home Visit", href: "/book/home-visit" },
+      { label: "Our Services", href: "/services" },
       { label: "Telemedicine", href: "/telemedicine" },
       { label: "Patient Portal", href: "/patient-login" },
     ],
@@ -80,7 +83,6 @@ export const footerNav: { heading: string; items: NavItem[] }[] = [
     items: [
       { label: "Privacy Centre", href: "/privacy-centre" },
       { label: "Privacy Notice", href: "/privacy-centre/notice" },
-      { label: "Cookie Policy", href: "/privacy-centre/cookies" },
       { label: "Consent Preferences", href: "/privacy-centre/preferences" },
       { label: "Your Data Rights", href: "/privacy-centre/rights-request" },
     ],

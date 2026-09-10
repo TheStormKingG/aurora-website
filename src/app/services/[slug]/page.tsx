@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
@@ -6,6 +7,7 @@ import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { getService, services } from "@/content/services";
+import { asset } from "@/lib/asset";
 
 export function generateStaticParams() {
   return services.map((s) => ({ slug: s.slug }));
@@ -34,7 +36,17 @@ export default async function ServiceDetailPage({
   return (
     <>
       <AuroraHero>
-        <div className="max-w-3xl">
+        {/* Split when the pillar has a photograph that honestly depicts
+            it; the ones without stay text-only rather than borrow an
+            image of something else. */}
+        <div
+          className={
+            service.image
+              ? "grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14"
+              : ""
+          }
+        >
+          <div className="max-w-3xl">
           <p className="eyebrow">{service.phaseLabel}</p>
           <div className="mt-5 flex items-start gap-5">
             <span className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-cyan/30 bg-navy p-3 text-cyan shadow-[0_0_18px_rgba(43,217,245,0.15)] sm:inline-flex">
@@ -62,13 +74,25 @@ export default async function ServiceDetailPage({
               </Button>
             </div>
           )}
+          </div>
+
+          {service.image ? (
+            <Image
+              src={asset(service.image)}
+              alt={service.imageAlt ?? ""}
+              width={1200}
+              height={900}
+              priority
+              className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+            />
+          ) : null}
         </div>
       </AuroraHero>
 
       <section className="section-light">
         <div className="mx-auto grid max-w-7xl gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.4fr_1fr]">
           <div>
-            <SectionHeading eyebrow="About this service" title="What it is" />
+            <SectionHeading title="What it is" />
             <div className="mt-6 space-y-5 text-base leading-relaxed">
               {service.body.map((p) => (
                 <p key={p.slice(0, 32)}>{p}</p>

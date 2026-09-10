@@ -9,7 +9,7 @@
  *   links, active states, focus rings).
  * - Violet and magenta are decorative — gradients and glows only, never
  *   for text or interactive elements.
- * - On light backgrounds links use --aurora-link-on-light (#0E8FAE);
+ * - On light backgrounds links use --aurora-link-on-light (#0A6F88);
  *   raw cyan on white fails WCAG contrast.
  *
  * Raw tokens are namespaced --aurora-*; Tailwind theme keys map onto
@@ -28,7 +28,10 @@
   --aurora-white: #f5f8fc; /* Starlight White — body text on dark      */
 
   /* ── Derived, contrast-safe ─────────────────────────────────────── */
-  --aurora-link-on-light: #0e8fae; /* darkened cyan, links on light bg */
+  --aurora-link-on-light: #0a6f88; /* darkened cyan, links on light bg */
+  /* 5.41:1 on Starlight White. The previous #0e8fae was 3.54:1 — below
+     the 4.5:1 WCAG AA floor PDR §12 commits to, on every eyebrow and
+     every link across all light sections. */
   --aurora-navy-soft: #0a1130; /* between navy and indigo, band bg     */
   --aurora-ink-muted: #3b4563; /* secondary text on light sections     */
   --aurora-line-dark: rgba(201, 211, 224, 0.14); /* hairlines on dark  */

@@ -18,6 +18,16 @@ export type Service = {
   phaseLabel: string;
   icon: IconName;
   bookable: boolean;
+  /**
+   * Optional hero photograph in public/photos. Pexels licence: free for
+   * commercial use, no attribution, but it forbids implying that the
+   * people shown endorse the product — so `imageAlt` describes the
+   * scene and never casts anyone as an Aurora patient or clinician.
+   * Services with no honest match stay text-only rather than borrow a
+   * photo of something else.
+   */
+  image?: string;
+  imageAlt?: string;
 };
 
 export const services: Service[] = [
@@ -49,6 +59,9 @@ export const services: Service[] = [
     phaseLabel: "Available now — Phase One",
     icon: "van",
     bookable: true,
+    image: "/photos/home-visit.jpg",
+    imageAlt:
+      "A clinician sitting with a patient on a sofa, taking notes during a home visit.",
   },
   {
     slug: "ncd-prevention",
@@ -78,6 +91,9 @@ export const services: Service[] = [
     phaseLabel: "Available now — Phase One",
     icon: "pulse",
     bookable: true,
+    image: "/photos/blood-pressure-check.jpg",
+    imageAlt:
+      "A health worker wearing a blood-pressure cuff, seated at a table.",
   },
   {
     slug: "maternal-health",
@@ -107,6 +123,9 @@ export const services: Service[] = [
     phaseLabel: "Available now — Phase One",
     icon: "heart",
     bookable: true,
+    image: "/photos/maternal-newborn.jpg",
+    imageAlt:
+      "A mother holding her newborn baby close, cheek to cheek.",
   },
   {
     slug: "child-nutrition-development",
@@ -164,6 +183,9 @@ export const services: Service[] = [
     phaseLabel: "Opening in Phase Two",
     icon: "building",
     bookable: false,
+    image: "/photos/community-health-worker.jpg",
+    imageAlt:
+      "A community health worker outdoors, carrying a clipboard.",
   },
   {
     slug: "active-ageing",
@@ -250,6 +272,9 @@ export const services: Service[] = [
     phaseLabel: "Live with Phase One services",
     icon: "orbit",
     bookable: false,
+    image: "/photos/clinician-records.jpg",
+    imageAlt:
+      "A clinician writing notes at a desk.",
   },
 ];
 

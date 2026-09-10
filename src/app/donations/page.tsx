@@ -5,6 +5,8 @@ import { Card } from "@/components/Card";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { site } from "@/content/site";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Donations",
@@ -32,7 +34,7 @@ const impacts = [
 
 export default function DonationsPage() {
   return (
-    <>
+    <Deck>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -83,6 +85,7 @@ export default function DonationsPage() {
           </Card>
         </div>
       </section>
-    </>
+      <Footer />
+    </Deck>
   );
 }

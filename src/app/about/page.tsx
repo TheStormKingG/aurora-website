@@ -6,6 +6,8 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { asset } from "@/lib/asset";
 import { site } from "@/content/site";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -42,14 +44,24 @@ const phases = [
 
 export default function AboutPage() {
   return (
-    <>
+    <Deck>
       <AuroraHero>
-        <SectionHeading
-          as="h1"
-          eyebrow="About us"
-          title="Care that reaches people. A record that lasts a lifetime."
-          lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
-        />
+        <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
+          <SectionHeading
+            as="h1"
+            eyebrow="About us"
+            title="Care that reaches people. A record that lasts a lifetime."
+            lede="An emerging Caribbean health company with one idea at its core: care should reach people, and a patient's health story should last a lifetime."
+          />
+          <Image
+            src={asset("/photos/pregnancy.jpg")}
+            alt="A woman walking through her neighbourhood on a bright day."
+            width={1400}
+            height={934}
+            priority
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+          />
+        </div>
       </AuroraHero>
 
       {/* Mission & philosophy — light long-form */}
@@ -70,7 +82,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div>
-            <SectionHeading eyebrow="Our philosophy" title="Three commitments" />
+            <SectionHeading title="Three commitments" />
             <ul className="mt-6 space-y-5">
               {[
                 {
@@ -107,7 +119,7 @@ export default function AboutPage() {
       {/* Leadership */}
       <section className="bg-navy">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-          <SectionHeading eyebrow="Leadership" title="Founded and led by Hannah Munro" />
+          <SectionHeading title="Founded and led by Hannah Munro" />
 
           <div className="mt-12 grid gap-10 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-14">
             {/* Founder portrait */}
@@ -167,7 +179,6 @@ export default function AboutPage() {
       <section className="starfield relative bg-navy-soft">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
           <SectionHeading
-            eyebrow="The phased vision"
             title="Four phases, one ecosystem"
             lede="Each phase adds a layer of care — and every layer connects to the same lifelong record."
           />
@@ -193,6 +204,7 @@ export default function AboutPage() {
           </ol>
         </div>
       </section>
-    </>
+      <Footer />
+    </Deck>
   );
 }

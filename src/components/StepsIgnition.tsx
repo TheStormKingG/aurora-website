@@ -50,7 +50,7 @@ export function StepsIgnition({ steps }: { steps: IgnitionStep[] }) {
   }, []);
 
   return (
-    <ol ref={ref} className="mx-auto mt-14 grid max-w-5xl gap-10 sm:grid-cols-3">
+    <ol ref={ref} data-deck-pair className="mx-auto mt-14 grid max-w-5xl gap-10 sm:grid-cols-3">
       {steps.map((item, i) => (
         <li
           key={item.step}
@@ -60,14 +60,7 @@ export function StepsIgnition({ steps }: { steps: IgnitionStep[] }) {
           <span className="ignite-icon mx-auto flex h-14 w-14 items-center justify-center rounded-full">
             <Icon name={item.icon} className="h-6 w-6" />
           </span>
-          <span
-            className={`eyebrow ignite-label mt-5 block !text-xs ${
-              lit ? "" : "!text-silver/60"
-            }`}
-          >
-            Step {item.step}
-          </span>
-          <h3 className="mt-2 text-xl">{item.title}</h3>
+          <h3 className="mt-5 text-xl">{item.title}</h3>
           <p className="mt-3 text-base leading-relaxed text-muted-surface">{item.body}</p>
         </li>
       ))}

@@ -352,3 +352,94 @@ h6 {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* ── Slide-deck mode ──────────────────────────────────────────────── */
+/* Set by <Deck> only once it has enabled itself, so no-JS and
+   reduced-motion visitors never reach any of this. */
+html[data-deck="on"],
+html[data-deck="on"] body {
+  overflow: hidden;
+}
+/* A page carrying a <Deck> renders the footer itself, as the final
+   slide. Suppress the layout's copy whenever that marker is present —
+   NOT only when the deck is active, or the reduced-motion fallback shows
+   two footers. display:none also drops it from the accessibility tree,
+   so exactly one contentinfo landmark is ever exposed. */
+body:has([data-deck-page]) [data-site-footer] {
+  display: none;
+}
+@media print {
+  html[data-deck="on"],
+  html[data-deck="on"] body {
+    overflow: visible;
+  }
+}
+
+/* A section written for a scrolling page carries padding a slide cannot
+   afford, so deck mode tightens it. Two things this has to get right:
+   the section must FILL the slide, or its background stops where its
+   content stops and the body colour shows through as bands above and
+   below; and centring must be `safe`, or a slide taller than the track
+   is clipped at its TOP with no way to scroll back up to it. */
+html[data-deck="on"] [data-deck-pane] {
+  display: flex;
+  flex-direction: column;
+}
+html[data-deck="on"] [data-deck-pane] > section {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Progressive: browsers that understand `safe` use it and stop
+     clipping overflow at the start edge; the rest keep plain centring. */
+  justify-content: safe center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+html[data-deck="on"] [data-deck-pane] > section > div {
+  width: 100%;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+@media (min-width: 1024px) {
+  html[data-deck="on"] [data-deck-pane] > section > div {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* ── Deck on small screens ────────────────────────────────────────── */
+/* Everything that makes a slide fit at lg is multi-column, and it all
+   stacks below that: measured on a 390x844 phone the home slides ran
+   148 / 728 / 165 / 332px past a 771px track. These rules buy that back
+   WITHOUT touching the ordinary scrolling layout, which phones already
+   handled well — they apply only while the deck is driving. */
+@media (max-width: 1023px) {
+  /* Display type is sized for a page you scroll, not a fixed slide. */
+  html[data-deck="on"] [data-deck-pane] h1 {
+    font-size: 1.875rem;
+    line-height: 1.1;
+  }
+  html[data-deck="on"] [data-deck-pane] > section > div {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  /* A hero photograph earns less height when the slide is the viewport. */
+  html[data-deck="on"] [data-deck-pane] img {
+    aspect-ratio: 16 / 10;
+  }
+  /* Card and promise grids pair up rather than stacking one per row. */
+  html[data-deck="on"] [data-deck-pane] [data-deck-pair] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  html[data-deck="on"] [data-deck-pane] [data-deck-pair] > * {
+    min-width: 0;
+  }
+  /* The platform panel leads with its promise; the supporting paragraph
+     is on the service page it links to. */
+  html[data-deck="on"] [data-deck-pane] [data-deck-trim] {
+    display: none;
+  }
+}
