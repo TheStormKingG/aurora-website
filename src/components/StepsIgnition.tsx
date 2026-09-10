@@ -60,19 +60,7 @@ export function StepsIgnition({ steps }: { steps: IgnitionStep[] }) {
           <span className="ignite-icon mx-auto flex h-14 w-14 items-center justify-center rounded-full">
             <Icon name={item.icon} className="h-6 w-6" />
           </span>
-          <span
-            /* The unlit resting state must still be readable: silver/60
-               is #dbe2eb on the Starlight section (1.22:1, WCAG AA
-               fail), and no-JS visitors never leave it. Ink-muted is
-               8.89:1 and still darker than the lit state, so the
-               ignition still reads as a change. */
-            className={`eyebrow ignite-label mt-5 block !text-xs ${
-              lit ? "" : "!text-ink-muted"
-            }`}
-          >
-            Step {item.step}
-          </span>
-          <h3 className="mt-2 text-xl">{item.title}</h3>
+          <h3 className="mt-5 text-xl">{item.title}</h3>
           <p className="mt-3 text-base leading-relaxed text-muted-surface">{item.body}</p>
         </li>
       ))}

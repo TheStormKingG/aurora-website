@@ -33,9 +33,8 @@ export default function HomePage() {
             className="reveal mt-6 max-w-2xl text-lg leading-relaxed text-silver sm:text-xl"
             style={{ "--reveal-i": 2 } as React.CSSProperties}
           >
-            Mobile clinics on your street. Home visits when you can&rsquo;t travel. Maternal
-            and child programmes that grow with your family. One secure record from pregnancy
-            through ageing — controlled by you.
+            Mobile clinics on your street. Home visits when you can&rsquo;t travel. One
+            secure record from pregnancy through ageing, controlled by you.
           </p>
           <div
             className="reveal mt-9 flex flex-wrap items-center gap-4"
@@ -51,39 +50,6 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Trust indicators */}
-          <dl
-            className="reveal mt-14 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-5 border-t border-line-dark pt-8 sm:grid-cols-3"
-            style={{ "--reveal-i": 4 } as React.CSSProperties}
-          >
-            <div>
-              <dt className="flex items-center gap-2 text-sm font-semibold text-starlight">
-                <Icon name="shield" className="h-4 w-4 text-cyan" />
-                Private by design
-              </dt>
-              <dd className="mt-1 text-sm text-silver">
-                GDPR-benchmark privacy. No trackers, no data sold.
-              </dd>
-            </div>
-            <div>
-              <dt className="flex items-center gap-2 text-sm font-semibold text-starlight">
-                <Icon name="orbit" className="h-4 w-4 text-cyan" />
-                One lifelong record
-              </dt>
-              <dd className="mt-1 text-sm text-silver">
-                Your history follows you — clinic, road, or home.
-              </dd>
-            </div>
-            <div>
-              <dt className="flex items-center gap-2 text-sm font-semibold text-starlight">
-                <Icon name="eye" className="h-4 w-4 text-cyan" />
-                You see everything
-              </dt>
-              <dd className="mt-1 text-sm text-silver">
-                Every access to your record is logged — visibly.
-              </dd>
-            </div>
-          </dl>
         </div>
       </AuroraHero>
 
@@ -93,7 +59,6 @@ export default function HomePage() {
           <Reveal>
             <div className="flex flex-wrap items-end justify-between gap-6">
               <SectionHeading
-                eyebrow="Our services"
                 title={<span id="services-heading">Eight pillars of care, one connected system</span>}
                 lede="From mobile clinics rolling today to the wellness centres of tomorrow — every service writes to the same lifelong record."
                 revealEcg
@@ -113,7 +78,6 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
           <Reveal>
             <SectionHeading
-              eyebrow="How Aurora works"
               title={<span id="how-heading">Care in three simple steps</span>}
               align="center"
               className="mx-auto"
@@ -155,7 +119,6 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
           <Reveal>
             <SectionHeading
-              eyebrow="Why families trust Aurora"
               title={<span id="trust-heading">Your health story belongs to you</span>}
               lede="Handling health information is a responsibility we designed for from day one — not a policy we added later."
               revealEcg
@@ -209,7 +172,6 @@ export default function HomePage() {
           <Reveal>
             <div className="flex flex-wrap items-end justify-between gap-6">
               <SectionHeading
-                eyebrow="News & programmes"
                 title={<span id="news-heading">What&rsquo;s happening at Aurora</span>}
                 revealEcg
               />
