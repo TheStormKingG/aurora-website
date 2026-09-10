@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
+import { RecordScreen } from "@/components/app/RecordScreen";
 
-export const metadata: Metadata = { title: "Health record" };
+export const metadata: Metadata = { title: { absolute: "Health record | Aurora Health" } };
 
 export default function RecordPage() {
-  return (
-    <div>
-      <h1 className="text-2xl">Health record</h1>
-      <p className="mt-2 text-silver">Your conditions, medications and allergies arrive in the next update.</p>
-    </div>
-  );
+  return <RecordScreen />;
 }
