@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Icon } from "@/components/icons";
 
 /**
  * Slide deck — one idea per screen, advanced by wheel, keys, swipe, or
@@ -32,24 +33,31 @@ const SLIDE_MS = 620;
  *  73px, not the 72px a 4.5rem constant assumes). */
 const CHROME_FALLBACK = "4.5rem";
 /**
- * The deck only engages where a slide can actually hold its content.
- * Height alone is not enough: the layouts that make a slide fit are
- * multi-column, and below `lg` they stack. Measured on a 390x844 phone
- * the services slide ran 728px past a 771px track — a whole extra screen
- * of scrolling inside one slide before it would advance, which is a
- * scrolling page with extra steps rather than a deck. So phones and
- * tablets get ordinary flow, which they were already good at.
+ * The deck only engages where a slide can actually hold its content, and
+ * that floor was set by measurement, not taste.
+ *
+ * At 768px and up every deck page fits with the small-screen compaction
+ * in globals.css. On a 390x844 phone it does not, and not by a little:
+ * with the same compaction applied, nine of ten pages still overflowed
+ * their 771px track — /resources by 1222px, /book by 873, /privacy-centre
+ * by 798. Closing that is not compaction, it is writing different
+ * content for phones. So phones get ordinary flow, which they already
+ * handled well, and a slide that overflows anyway scrolls inside itself.
  */
 const MIN_VIEWPORT_H = 560;
-const MIN_VIEWPORT_W = 1024;
+const MIN_VIEWPORT_W = 768;
 
-export function Deck({ children, labels }: { children: ReactNode; labels: string[] }) {
+export function Deck({ children, labels }: { children: ReactNode; labels?: string[] }) {
   const slides = Children.toArray(children);
   const [index, setIndex] = useState(0);
   const [enabled, setEnabled] = useState(false);
   const locked = useRef(false);
   const touchY = useRef<number | null>(null);
   const paneRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Labels name slides for the live region and each pane's accessible
+  // name. Reading each slide's own heading keeps them true for free, so
+  // a page only passes `labels` to override.
+  const [derived, setDerived] = useState<string[]>([]);
 
   const count = slides.length;
   const go = useCallback(
@@ -171,6 +179,17 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
     };
   }, [enabled, paneCanScroll, step, go, count]);
 
+  useEffect(() => {
+    if (!enabled) return;
+    setDerived(
+      paneRefs.current.map(
+        (pane) => pane?.querySelector("h1, h2")?.textContent?.trim().slice(0, 70) ?? ""
+      )
+    );
+  }, [enabled, count]);
+
+  const nameOf = (i: number) => labels?.[i] || derived[i] || `Slide ${i + 1}`;
+
   // A slide arriving should start at its own top, not wherever it was left.
   useEffect(() => {
     paneRefs.current[index]?.scrollTo({ top: 0 });
@@ -216,7 +235,7 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
             // crawlers, but must not take focus.
             data-deck-pane=""
             role="group"
-            aria-label={`${labels[i] ?? `Slide ${i + 1}`} (${i + 1} of ${count})`}
+            aria-label={`${nameOf(i)} (${i + 1} of ${count})`}
             inert={i !== index}
             aria-hidden={i === index ? undefined : true}
             className="h-full w-full overflow-y-auto overscroll-contain"
@@ -226,10 +245,25 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
         ))}
       </div>
 
+      {/* The page does not scroll, so nothing signals that there is more
+          below. A generic "scroll" label would be decoration on an
+          ordinary page; here it is the only affordance, and it is a real
+          control rather than a hint. Hidden on the last slide. */}
+      {index < count - 1 ? (
+        <button
+          type="button"
+          onClick={() => go(index + 1)}
+          className="motion-press absolute bottom-6 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-silver/30 bg-navy/70 px-5 py-2.5 text-sm font-semibold text-starlight backdrop-blur-sm transition-colors hover:border-cyan hover:text-cyan"
+        >
+          {index === 0 ? "Start here" : "Next"}
+          <Icon name="arrow" className="h-4 w-4 rotate-90" />
+        </button>
+      ) : null}
+
       {/* The deck moves the viewport without the document scrolling, which
           a screen reader has no other way to notice. */}
       <p aria-live="polite" className="sr-only">
-        {labels[index] ?? `Slide ${index + 1}`}, {index + 1} of {count}
+        {nameOf(index)}, {index + 1} of {count}
       </p>
     </div>
     </>

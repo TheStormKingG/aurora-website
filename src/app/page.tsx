@@ -15,16 +15,7 @@ import { asset } from "@/lib/asset";
 
 export default function HomePage() {
   return (
-    <Deck
-      labels={[
-        "Healthcare that comes to you",
-        "Services available now",
-        "On the roadmap",
-        "Care in three simple steps",
-        "Your health story belongs to you",
-        "Contact and site links",
-      ]}
-    >
+    <Deck>
       {/* ── Hero (PDR §5: hero, booking CTA, trust indicators) ────── */}
       <AuroraHero size="home">
         <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
@@ -172,7 +163,7 @@ export default function HomePage() {
             </p>
           </Reveal>
 
-          <ul className="mt-12 grid gap-8 text-left sm:grid-cols-2 lg:grid-cols-4">
+          <ul data-deck-pair className="mt-12 grid gap-8 text-left sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: "shield" as const,

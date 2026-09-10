@@ -6,6 +6,8 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { Icon } from "@/components/icons";
 import { asset } from "@/lib/asset";
 import { site } from "@/content/site";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -42,7 +44,7 @@ const phases = [
 
 export default function AboutPage() {
   return (
-    <>
+    <Deck>
       <AuroraHero>
         <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
           <SectionHeading
@@ -202,6 +204,7 @@ export default function AboutPage() {
           </ol>
         </div>
       </section>
-    </>
+      <Footer />
+    </Deck>
   );
 }

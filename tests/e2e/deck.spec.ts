@@ -94,6 +94,13 @@ test("a phone viewport gets ordinary flow, not a deck", async ({ browser }) => {
   await page.close();
 });
 
+test("a tablet is wide enough for the deck", async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 768, height: 1024 } });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-deck", "on");
+  await page.close();
+});
+
 test("reduced motion falls back to ordinary document flow", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
   await page.goto("/");

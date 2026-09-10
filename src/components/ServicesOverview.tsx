@@ -55,7 +55,7 @@ export function ServicesOverview({ part = "all" }: { part?: "all" | "available" 
       <Reveal>
         <ServicePlatformPanel as="h4" className="mt-4" />
       </Reveal>
-      <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <ul data-deck-pair className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {available.map((s, i) => (
           <Reveal as="li" key={s.slug} index={i % 4}>
             <article className="group relative flex h-full flex-col rounded-2xl border border-line-dark bg-indigo p-6 transition-colors duration-300 hover:border-cyan/50">

@@ -6,6 +6,8 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { ServicePlatformPanel } from "@/components/ServicePlatformPanel";
 import { Icon } from "@/components/icons";
 import { services } from "@/content/services";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -24,7 +26,7 @@ const roadmap = services
 
 export default function ServicesPage() {
   return (
-    <>
+    <Deck>
       <AuroraHero>
         <SectionHeading
           as="h1"
@@ -47,6 +49,14 @@ export default function ServicesPage() {
             Available now
           </h2>
           <ServicePlatformPanel className="mt-4" />
+        </div>
+      </section>
+
+      <section className="bg-navy" aria-labelledby="pillars-heading">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+          <h2 id="pillars-heading" className="font-heading text-sm font-semibold text-silver">
+            The four you can book today
+          </h2>
           <ul className="mt-6 grid gap-6 md:grid-cols-2">
             {available.map((s) => (
               <li key={s.slug}>
@@ -133,6 +143,7 @@ export default function ServicesPage() {
           </ul>
         </div>
       </section>
-    </>
+      <Footer />
+    </Deck>
   );
 }

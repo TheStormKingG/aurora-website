@@ -407,3 +407,39 @@ html[data-deck="on"] [data-deck-pane] > section > div {
     padding-bottom: 2.5rem;
   }
 }
+
+/* ── Deck on small screens ────────────────────────────────────────── */
+/* Everything that makes a slide fit at lg is multi-column, and it all
+   stacks below that: measured on a 390x844 phone the home slides ran
+   148 / 728 / 165 / 332px past a 771px track. These rules buy that back
+   WITHOUT touching the ordinary scrolling layout, which phones already
+   handled well — they apply only while the deck is driving. */
+@media (max-width: 1023px) {
+  /* Display type is sized for a page you scroll, not a fixed slide. */
+  html[data-deck="on"] [data-deck-pane] h1 {
+    font-size: 1.875rem;
+    line-height: 1.1;
+  }
+  html[data-deck="on"] [data-deck-pane] > section > div {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  /* A hero photograph earns less height when the slide is the viewport. */
+  html[data-deck="on"] [data-deck-pane] img {
+    aspect-ratio: 16 / 10;
+  }
+  /* Card and promise grids pair up rather than stacking one per row. */
+  html[data-deck="on"] [data-deck-pane] [data-deck-pair] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  html[data-deck="on"] [data-deck-pane] [data-deck-pair] > * {
+    min-width: 0;
+  }
+  /* The platform panel leads with its promise; the supporting paragraph
+     is on the service page it links to. */
+  html[data-deck="on"] [data-deck-pane] [data-deck-trim] {
+    display: none;
+  }
+}
