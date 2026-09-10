@@ -221,7 +221,7 @@ readings_archive, water_intake_archive, exercise_sessions_archive
 | Water, exercise | `Observation` with `code.text` "Water intake" / "Exercise session" and `valueQuantity` (ml / min) | text-coded |
 | Conditions · surgeries · medications · allergies · family history | `Condition` · `Procedure` · `MedicationStatement` · `AllergyIntolerance` · `FamilyMemberHistory`, text-coded | text-coded |
 
-`subject` is a `Patient` reference to the pseudonymous `patient_id`; the file carries the patient's name from `profiles` in a contained `Patient` resource so the download is meaningful on its own. Unit tests assert resource types, codes and units.
+`subject` is a `Patient` reference to the pseudonymous `patient_id`; the file carries the patient's name from `profiles` in a `Patient` bundle entry (not a `contained` resource — an entry is what makes the `Patient/{id}` references resolve) so the download is meaningful on its own. Unit tests assert resource types, codes and units.
 
 ## 13. Privacy, security and DPIA input
 

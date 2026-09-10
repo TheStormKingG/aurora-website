@@ -56,11 +56,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [session, refreshStatus]);
 
   const onConsent = pathname.startsWith("/app/consent");
+  const onMore = pathname.startsWith("/app/more");
   const consented = isConsentCurrent(status?.activeVersion ?? null); // spec §15: extracted, tested
+  // Spec §8 has three states, not two. A patient who has never consented must
+  // go to the consent screen — but one who *withdrew* keeps a patient row and a
+  // 30-day window in which Resume cancels the deletion, and §8 says the app
+  // "returns the patient to a tracking-stopped state with a Resume button".
+  // Sending them back through consent would hide Resume and the download, and
+  // push them to re-consent instead of leaving the choice open.
+  const withdrawn = !consented && status?.patientId != null;
 
   useEffect(() => {
     if (!status) return;
-    if (!consented && !onConsent) router.replace("/app/consent/");
+    if (withdrawn) {
+      // More holds Resume, the download and delete-now — everything a
+      // withdrawn patient can still do. Nothing else in the app applies.
+      if (!onMore) router.replace("/app/more/");
+    } else if (!consented && !onConsent) router.replace("/app/consent/");
     else if (consented && onConsent) router.replace("/app/");
     if (consented && status.patientId) {
       logAppOpen(status.patientId).catch(() => {
@@ -70,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         console.error(JSON.stringify({ event: "health.log_app_open_failed" }));
       });
     }
-  }, [status, consented, onConsent, router]);
+  }, [status, consented, withdrawn, onConsent, onMore, router]);
 
   // C3 / spec §9.1: move focus to the new screen's heading on tab change —
   // every /app screen renders exactly one h1, so finding it here covers
@@ -127,7 +139,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // through (a consented patient could otherwise re-submit consent and
   // grant_consent would insert a duplicate row). Loading rather than a
   // bare null (M2) so the redirect doesn't flash a blank frame either.
-  if (consented === onConsent) return <ShellLoading />;
+  // A withdrawn patient renders More and nothing else; everyone else renders
+  // only when consent state and route agree (mid-redirect otherwise).
+  if (withdrawn ? !onMore : consented === onConsent) return <ShellLoading />;
 
   return (
     <AppProvider value={value}>

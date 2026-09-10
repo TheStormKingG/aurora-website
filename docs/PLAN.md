@@ -102,9 +102,11 @@ Not code: DPIA signed off, external pentest booked/passed, WCAG 2.2 AA external 
 Source: 31 Aug 2026 meeting (Hannah + Stefan). Spec `docs/superpowers/specs/2026-09-08-health-app-design.md`; Plan 1 `docs/superpowers/plans/2026-09-08-health-app-foundation.md`. The HM-Aurora Supabase project gains a `health` schema — the Aurora Digital Health Platform v0 — with pseudonymous patient IDs, RLS, an append-only access log, an Art. 9 consent gate and pg_cron retention jobs; the site gains a mobile-first app at `/app/` (consent → Today → Log sheet). **PDR §11.1 is amended in Plan 2** to name this schema the single source of truth for clinical data until a dedicated EHR exists.
 
 Done when:
-- [ ] `npm run test:rls` proves own-rows-only, consent-gated writes, tamper-proof log, anon locked out
-- [ ] Consent → Today → Log flow passes Playwright + axe at 375 px
-- [ ] Plan 2 delivered: Trends, Record, More (withdraw/export/access history), PWA manifest + service worker, PDR/notice updates
+- [x] `npm run test:rls` proves own-rows-only, consent-gated writes, tamper-proof log, anon locked out
+- [x] Consent → Today → Log flow passes Playwright + axe at 375 px
+- [x] Plan 2 delivered: Trends, Record, More (withdraw/export/access history), PWA manifest + service worker, PDR/notice updates
+
+**Plan 2 (2026-09-09).** Plan `docs/superpowers/plans/2026-09-09-health-app-plan-2.md`. Trends (charts, summary, table view, delete), the Record checklist, and More — consent withdrawal with a 30-day resume window, immediate deletion, FHIR R4 download, the patient's own access history, and units/goals. The app is installable to a home screen; the service worker caches the shell only and never a Supabase response. PDR §11.1 now names the `health` schema as the Aurora Digital Health Platform v0; the privacy notice gains a health-data section at version 1.1. **Still open, and gating a public launch:** clinician sign-off on the reference thresholds and urgent wording (spec §18 item 1) and the DPIA (item 4).
 
 ## 3. Working practices with Claude Code
 
