@@ -28,13 +28,18 @@ export default function ContactPage() {
             lede="Questions, partnerships, careers, or bringing a mobile clinic to your community — we reply within two working days."
           />
           </div>
+          {/* Anchored at 20% rather than centre. The mobile crop is 4:3
+              against a 2:3 source, so object-center takes the vertical
+              middle and cuts the face off — which is exactly how the
+              previous photo shipped. Any portrait source in this slot
+              needs a position set; centre is not a safe default here. */}
           <Image
-            src={asset("/photos/contact-team.jpg")}
-            alt="Two Aurora clinicians standing together, one holding a clipboard."
-            width={1200}
-            height={800}
+            src={asset("/photos/contact-clinician.jpg")}
+            alt="An Aurora clinician in a white coat and stethoscope, smiling."
+            width={1000}
+            height={1500}
             priority
-            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-[center_20%] shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
           />
         </div>
       </AuroraHero>

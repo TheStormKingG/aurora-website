@@ -37,13 +37,17 @@ export default function ServicesPage() {
             lede="Every pillar is a doorway into the same connected system: book once, and your care — mobile, in-centre, or virtual — builds one lifelong health record."
           />
           </div>
+          {/* 20%, not centre: a 4:3 mobile crop of this 2:3 source takes the
+              vertical middle and cut the standing clinician's head off above
+              the eyes. Landscape sources in this slot are safe at centre —
+              portrait ones are not. */}
           <Image
             src={asset("/photos/services-care.jpg")}
             alt="Two clinicians in white coats working together over a patient's notes."
             width={1000}
             height={1500}
             priority
-            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-center shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
+            className="aspect-[4/3] w-full rounded-2xl border border-line-dark object-cover object-[center_20%] shadow-[0_24px_50px_-22px_rgba(2,5,18,0.7)] lg:aspect-[5/6]"
           />
         </div>
       </AuroraHero>
