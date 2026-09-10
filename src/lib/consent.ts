@@ -9,7 +9,7 @@
  * analytics) stay OFF until explicit opt-in (most-private defaults).
  */
 
-export const NOTICE_VERSION = "1.0-2026-07-10";
+export const NOTICE_VERSION = "1.1-2026-09-09";
 export const CONSENT_COOKIE = "aurora-consent";
 /** Re-prompt horizon: 6 months. */
 export const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 182;

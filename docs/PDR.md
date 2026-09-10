@@ -220,6 +220,7 @@ The website and portal are windows onto the Aurora Lifetime Health Record — ne
 ### 11.1 Architecture
 
 - Single source of truth: the public website stores no clinical data; the portal reads and writes through authenticated APIs to the Aurora Digital Health Platform.
+- **Aurora Digital Health Platform v0 (added 2026-09-09).** Until a dedicated EHR exists, the `health` schema in the HM-Aurora database *is* the platform, and it is the single source of truth for clinical data. Patient-entered readings, lifestyle entries and health-record entries live there under a pseudonymous patient identifier, separated from identity in `public`, with row-level security, an explicit Art. 9 consent gate, an append-only access log and scheduled retention. The public website's own schema still stores no clinical data. The FHIR boundary in §11.5 is honoured through the export format and the schema separation, and becomes an API boundary when the EHR arrives.
 - Interoperability: HL7 FHIR (R4 or later) as the integration standard between portal and platform — aligning Aurora with U.S. interoperability expectations and the European Health Data Space direction, and keeping future EHR/lab/pharmacy integrations plug-compatible.
 - Governance framework: ISO 27001 information-security management with ISO 27799 health-specific controls; certification is a Phase Two roadmap item.
 

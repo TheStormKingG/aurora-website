@@ -103,6 +103,25 @@ export default function PrivacyNoticePage() {
           </section>
 
           <section>
+            <h2 className="text-2xl">Health data in the Aurora app</h2>
+            <p className="mt-4">
+              If you use the Aurora app, we store the health information you enter: blood pressure, blood
+              sugar and cholesterol readings, water and exercise entries, and the health record you keep
+              there &mdash; conditions, surgeries, medications, allergies and family history. This is
+              special-category data, so we rely on your <strong>explicit consent</strong> (GDPR Article
+              9(2)(a)), asked for in the app before anything is stored and withdrawable in one tap.
+            </p>
+            <p className="mt-4">
+              It is held in Aurora&rsquo;s database, which runs on Supabase on servers in Brazil, encrypted,
+              and filed under a code rather than your name. Every time your record is opened or changed it
+              is logged, and you can read that log yourself in the app. Readings stay in the app for 12
+              months and then move to our archive. If you withdraw consent, tracking stops at once and your
+              health data is deleted 30 days later unless you change your mind. Withdrawing does not undo
+              processing already carried out lawfully.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-2xl">Defaults that protect you</h2>
             <ul className="mt-4 list-disc space-y-2 pl-5">
               <li>Marketing communications: <strong>off</strong> unless you opt in.</li>

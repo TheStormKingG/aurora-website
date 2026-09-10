@@ -20,7 +20,7 @@ export const site = {
     country: "Guyana",
     region: "Caribbean",
   },
-  privacyNoticeVersion: "1.0 (10 July 2026)",
+  privacyNoticeVersion: "1.1 (9 September 2026)",
 } as const;
 
 export type NavItem = {
