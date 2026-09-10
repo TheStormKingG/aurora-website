@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AuroraHero } from "@/components/AuroraHero";
+import { Deck } from "@/components/deck/Deck";
+import { Footer } from "@/components/Footer";
 import { Button } from "@/components/Button";
 import { EcgDivider } from "@/components/EcgDivider";
 import { Reveal } from "@/components/Reveal";
@@ -13,7 +15,16 @@ import { asset } from "@/lib/asset";
 
 export default function HomePage() {
   return (
-    <>
+    <Deck
+      labels={[
+        "Healthcare that comes to you",
+        "Services available now",
+        "On the roadmap",
+        "Care in three simple steps",
+        "Your health story belongs to you",
+        "Contact and site links",
+      ]}
+    >
       {/* ── Hero (PDR §5: hero, booking CTA, trust indicators) ────── */}
       <AuroraHero size="home">
         <div className="grid items-center gap-10 lg:grid-cols-[7fr_5fr] lg:gap-14">
@@ -85,7 +96,19 @@ export default function HomePage() {
             </div>
           </Reveal>
 
-          <ServicesOverview />
+          <ServicesOverview part="available" />
+        </div>
+      </section>
+
+      <section className="bg-navy-soft" aria-labelledby="roadmap-heading">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
+          <Reveal>
+            <SectionHeading
+              title={<span id="roadmap-heading">Coming to your community</span>}
+              lede="Three more pillars are on the way. Each one extends the same record you start building today."
+            />
+          </Reveal>
+          <ServicesOverview part="roadmap" />
         </div>
       </section>
 
@@ -202,6 +225,7 @@ export default function HomePage() {
           </Reveal>
         </div>
       </section>
-    </>
+      <Footer />
+    </Deck>
   );
 }

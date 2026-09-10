@@ -37,9 +37,18 @@ function GroupLabel({ children }: { children: string }) {
   );
 }
 
-export function ServicesOverview() {
+/**
+  * `part` lets the two halves become separate slides in deck mode, where
+  * the combined section was 1089px against an 828px track. On a scrolling
+  * page it renders whole, as before.
+  */
+export function ServicesOverview({ part = "all" }: { part?: "all" | "available" | "roadmap" }) {
+  const showAvailable = part !== "roadmap";
+  const showRoadmap = part !== "available";
   return (
     <>
+      {showAvailable ? (
+      <>
       <Reveal className="mt-12">
         <GroupLabel>Available now</GroupLabel>
       </Reveal>
@@ -79,6 +88,11 @@ export function ServicesOverview() {
         ))}
       </ul>
 
+      </>
+      ) : null}
+
+      {showRoadmap ? (
+      <>
       <Reveal className="mt-14">
         <GroupLabel>On the roadmap</GroupLabel>
       </Reveal>
@@ -110,6 +124,8 @@ export function ServicesOverview() {
           </Reveal>
         ))}
       </ul>
+      </>
+      ) : null}
     </>
   );
 }

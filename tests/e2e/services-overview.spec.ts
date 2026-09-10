@@ -14,6 +14,8 @@ import { injectAxe, checkA11y } from "axe-playwright";
  * they sat at 3.54:1 — a failure a top-of-page-only scan never saw.
  */
 
+test.use({ contextOptions: { reducedMotion: "reduce" } });
+
 for (const path of ["/", "/services"]) {
   test(`no axe violations on ${path}`, async ({ page }) => {
     await page.goto(path);
@@ -36,7 +38,8 @@ test("home overview splits available services from the roadmap", async ({ page }
   const section = page.locator('section[aria-labelledby="services-heading"]');
 
   await expect(section.getByRole("heading", { name: "Available now" })).toBeVisible();
-  await expect(section.getByRole("heading", { name: "On the roadmap" })).toBeVisible();
+  // The roadmap is its own section now, so it can be its own slide.
+  await expect(page.getByRole("heading", { name: "Coming to your community" })).toBeVisible();
 
   // Four bookable services, each with its own Book link — the action
   // that replaced the "AVAILABLE NOW" badge.
@@ -48,7 +51,9 @@ test("home overview splits available services from the roadmap", async ({ page }
   ).toBeVisible();
 
   // Roadmap items are rows, and every one names its phase.
-  const roadmap = section.locator("ul").last().locator("li");
+  const roadmap = page
+    .locator('section[aria-labelledby="roadmap-heading"]')
+    .locator("ul li");
   await expect(roadmap).toHaveCount(3);
   for (const phase of [2, 3, 4]) {
     await expect(roadmap.getByText(`Phase ${phase}`, { exact: true })).toBeVisible();

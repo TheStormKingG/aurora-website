@@ -13,9 +13,17 @@ import { test, expect } from "@playwright/test";
  * phone clears it with room to spare.
  */
 
+/**
+ * Reduced motion is the deck's documented fallback: the page renders as
+ * ordinary document flow. These assertions are about content and
+ * geometry rather than the deck, so they run in that mode — which also
+ * means the fallback itself is under test. Deck behaviour is covered in
+ * deck.spec.ts.
+ */
+
 const SMALLEST_PHONE = { width: 375, height: 667 };
 
-test.use({ viewport: SMALLEST_PHONE });
+test.use({ viewport: SMALLEST_PHONE, contextOptions: { reducedMotion: "reduce" } });
 
 test("footer fits one screen on the smallest supported phone", async ({ page }) => {
   await page.goto("/");
@@ -56,7 +64,8 @@ test("footer keeps its wayfinding, contact, trust and legal jobs", async ({ page
 
 test("footer links are large enough to tap", async ({ page }) => {
   await page.goto("/");
-  const links = page.locator("footer nav a");
+  // Two footers exist on a deck page; the layout copy is display:none.
+  const links = page.locator("footer:visible").first().locator("nav a");
   const count = await links.count();
   expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
