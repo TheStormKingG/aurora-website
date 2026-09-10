@@ -14,31 +14,38 @@ import { test, expect } from "@playwright/test";
 
 const SLIDES = 6;
 
-test("deck drives the home page: pager, keyboard, and a locked document", async ({ page }) => {
+// The deck is desktop-only by design (see Deck.tsx): below lg the
+// multi-column layouts stack and no slide fits.
+test.use({ viewport: { width: 1440, height: 900 } });
+
+test("deck drives the home page: keyboard, live region, locked document", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-deck", "on");
-
-  const pager = page.getByRole("navigation", { name: "Slides" }).getByRole("button");
-  await expect(pager).toHaveCount(SLIDES);
+  await page.locator("[data-deck-pane]").first().waitFor();
+  await expect(page.locator("[data-deck-pane]")).toHaveCount(SLIDES);
 
   // The document itself must not scroll while the deck owns the viewport.
-  expect(await page.evaluate(() => document.body.scrollHeight <= window.innerHeight + 4)).toBe(true);
+  expect(await page.evaluate(() => document.body.scrollHeight <= window.innerHeight + 4)).toBe(
+    true
+  );
 
-  const current = () =>
-    page.evaluate(
-      () =>
-        document.querySelector('[aria-label="Slides"] button[aria-current]')?.textContent ?? "?"
-    );
+  // There is no visible pager, so position is read off the rail — and,
+  // for anyone using a screen reader, announced by the live region.
+  const at = () =>
+    page.evaluate(() => {
+      const rail = document.querySelector("[data-deck-pane]")?.parentElement;
+      const m = /translateY\((-?\d+)%\)/.exec(rail?.style.transform ?? "");
+      return m ? Math.abs(Number(m[1])) / 100 + 1 : 1;
+    });
 
-  await expect.poll(current).toBe("1");
+  await expect.poll(at).toBe(1);
   await page.keyboard.press("End");
-  await expect.poll(current).toBe(String(SLIDES));
+  await expect.poll(at).toBe(SLIDES);
+  await expect(page.locator("[aria-live='polite']")).toContainText(`${SLIDES} of ${SLIDES}`);
   await page.keyboard.press("Home");
-  await expect.poll(current).toBe("1");
-
-  // Pager jumps are always available, even on a slide that scrolls.
-  await pager.nth(3).click();
-  await expect.poll(current).toBe("4");
+  await expect.poll(at).toBe(1);
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(at).toBe(2);
 });
 
 test("off-screen slides stay in the DOM but cannot take focus", async ({ page }) => {
@@ -79,8 +86,16 @@ test("no slide overflows its track enough to feel stuck", async ({ page }) => {
   }
 });
 
+test("a phone viewport gets ordinary flow, not a deck", async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto("/");
+  await expect(page.locator("html")).not.toHaveAttribute("data-deck", "on");
+  expect(await page.evaluate(() => document.body.scrollHeight > window.innerHeight)).toBe(true);
+  await page.close();
+});
+
 test("reduced motion falls back to ordinary document flow", async ({ browser }) => {
-  const page = await browser.newPage({ reducedMotion: "reduce" });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.locator("html")).not.toHaveAttribute("data-deck", "on");
   await expect(page.getByRole("navigation", { name: "Slides" })).toHaveCount(0);
@@ -90,9 +105,10 @@ test("reduced motion falls back to ordinary document flow", async ({ browser }) 
 
 for (const mode of ["deck", "fallback"] as const) {
   test(`exactly one footer is exposed in ${mode} mode`, async ({ browser }) => {
-    const page = await browser.newPage(
-      mode === "fallback" ? { reducedMotion: "reduce" } : undefined
-    );
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 900 },
+      ...(mode === "fallback" ? { reducedMotion: "reduce" as const } : {}),
+    });
     await page.goto("/");
     const visible = await page.evaluate(
       () =>

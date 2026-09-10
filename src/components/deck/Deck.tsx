@@ -28,10 +28,20 @@ import { Children, useCallback, useEffect, useRef, useState, type ReactNode } fr
  */
 
 const SLIDE_MS = 620;
-/** Sticky header height (NavBar: h-[4.5rem]). */
-const CHROME = "4.5rem";
-/** Below this the track cannot hold a slide, so the deck stays off. */
-const MIN_VIEWPORT = 560;
+/** Fallback only — the real header is measured on mount (it renders at
+ *  73px, not the 72px a 4.5rem constant assumes). */
+const CHROME_FALLBACK = "4.5rem";
+/**
+ * The deck only engages where a slide can actually hold its content.
+ * Height alone is not enough: the layouts that make a slide fit are
+ * multi-column, and below `lg` they stack. Measured on a 390x844 phone
+ * the services slide ran 728px past a 771px track — a whole extra screen
+ * of scrolling inside one slide before it would advance, which is a
+ * scrolling page with extra steps rather than a deck. So phones and
+ * tablets get ordinary flow, which they were already good at.
+ */
+const MIN_VIEWPORT_H = 560;
+const MIN_VIEWPORT_W = 1024;
 
 export function Deck({ children, labels }: { children: ReactNode; labels: string[] }) {
   const slides = Children.toArray(children);
@@ -51,7 +61,12 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
   // the motion preference changes, so it switches off mid-session too.
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const check = () => setEnabled(!motion.matches && window.innerHeight >= MIN_VIEWPORT);
+    const check = () =>
+      setEnabled(
+        !motion.matches &&
+          window.innerHeight >= MIN_VIEWPORT_H &&
+          window.innerWidth >= MIN_VIEWPORT_W
+      );
     check();
     motion.addEventListener("change", check);
     window.addEventListener("resize", check);
@@ -66,8 +81,18 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
     if (!enabled) return;
     const root = document.documentElement;
     root.dataset.deck = "on";
+    // Track height is the viewport minus the REAL sticky header, measured
+    // rather than assumed, and re-measured when the layout reflows.
+    const measure = () => {
+      const h = document.querySelector("header")?.getBoundingClientRect().height ?? 0;
+      root.style.setProperty("--deck-chrome", `${Math.round(h)}px`);
+    };
+    measure();
+    window.addEventListener("resize", measure);
     return () => {
+      window.removeEventListener("resize", measure);
       delete root.dataset.deck;
+      root.style.removeProperty("--deck-chrome");
     };
   }, [enabled]);
 
@@ -171,7 +196,11 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
       {marker}
     <div
       className="relative overflow-hidden"
-      style={{ height: `calc(100dvh - ${CHROME})`, touchAction: "pan-x", overscrollBehavior: "none" }}
+      style={{
+        height: `calc(100dvh - var(--deck-chrome, ${CHROME_FALLBACK}))`,
+        touchAction: "pan-x",
+        overscrollBehavior: "none",
+      }}
     >
       <div
         className="h-full w-full transition-transform duration-[620ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -186,6 +215,8 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
             // Off-screen slides stay in the DOM for find-in-page and
             // crawlers, but must not take focus.
             data-deck-pane=""
+            role="group"
+            aria-label={`${labels[i] ?? `Slide ${i + 1}`} (${i + 1} of ${count})`}
             inert={i !== index}
             aria-hidden={i === index ? undefined : true}
             className="h-full w-full overflow-y-auto overscroll-contain"
@@ -195,27 +226,11 @@ export function Deck({ children, labels }: { children: ReactNode; labels: string
         ))}
       </div>
 
-      <nav
-        aria-label="Slides"
-        className="absolute right-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-2 sm:right-5"
-      >
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => go(i)}
-            aria-current={i === index ? "true" : undefined}
-            aria-label={`${labels[i] ?? `Slide ${i + 1}`} (${i + 1} of ${count})`}
-            className={`h-9 w-9 rounded-full text-[0.7rem] font-semibold transition-colors ${
-              i === index
-                ? "bg-cyan text-navy"
-                : "text-silver hover:bg-starlight/10 hover:text-cyan"
-            }`}
-          >
-            {i + 1}
-          </button>
-        ))}
-      </nav>
+      {/* The deck moves the viewport without the document scrolling, which
+          a screen reader has no other way to notice. */}
+      <p aria-live="polite" className="sr-only">
+        {labels[index] ?? `Slide ${index + 1}`}, {index + 1} of {count}
+      </p>
     </div>
     </>
   );

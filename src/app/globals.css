@@ -375,20 +375,29 @@ body:has([data-deck-page]) [data-site-footer] {
   }
 }
 
-/* A section written for a scrolling page carries padding that a slide
-   cannot afford: the home hero was 892px and the services section
-   1089px inside an 828px track. In deck mode the slide is the viewport,
-   so vertical padding tightens and content centres in the space. */
+/* A section written for a scrolling page carries padding a slide cannot
+   afford, so deck mode tightens it. Two things this has to get right:
+   the section must FILL the slide, or its background stops where its
+   content stops and the body colour shows through as bands above and
+   below; and centring must be `safe`, or a slide taller than the track
+   is clipped at its TOP with no way to scroll back up to it. */
 html[data-deck="on"] [data-deck-pane] {
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 html[data-deck="on"] [data-deck-pane] > section {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Progressive: browsers that understand `safe` use it and stop
+     clipping overflow at the start edge; the rest keep plain centring. */
+  justify-content: safe center;
   padding-top: 0;
   padding-bottom: 0;
 }
 html[data-deck="on"] [data-deck-pane] > section > div {
+  width: 100%;
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
 }
