@@ -68,7 +68,7 @@ export default async function ServiceDetailPage({
       <section className="section-light">
         <div className="mx-auto grid max-w-7xl gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.4fr_1fr]">
           <div>
-            <SectionHeading eyebrow="About this service" title="What it is" />
+            <SectionHeading title="What it is" />
             <div className="mt-6 space-y-5 text-base leading-relaxed">
               {service.body.map((p) => (
                 <p key={p.slice(0, 32)}>{p}</p>

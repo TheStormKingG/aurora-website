@@ -70,7 +70,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div>
-            <SectionHeading eyebrow="Our philosophy" title="Three commitments" />
+            <SectionHeading title="Three commitments" />
             <ul className="mt-6 space-y-5">
               {[
                 {
@@ -107,7 +107,7 @@ export default function AboutPage() {
       {/* Leadership */}
       <section className="bg-navy">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-          <SectionHeading eyebrow="Leadership" title="Founded and led by Hannah Munro" />
+          <SectionHeading title="Founded and led by Hannah Munro" />
 
           <div className="mt-12 grid gap-10 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-14">
             {/* Founder portrait */}
@@ -167,7 +167,6 @@ export default function AboutPage() {
       <section className="starfield relative bg-navy-soft">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
           <SectionHeading
-            eyebrow="The phased vision"
             title="Four phases, one ecosystem"
             lede="Each phase adds a layer of care — and every layer connects to the same lifelong record."
           />

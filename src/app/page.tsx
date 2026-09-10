@@ -57,7 +57,6 @@ export default function HomePage() {
               <SectionHeading
                 title={<span id="services-heading">Eight pillars of care, one connected system</span>}
                 lede="From mobile clinics rolling today to the wellness centres of tomorrow — every service writes to the same lifelong record."
-                revealEcg
               />
               <Button href="/services" variant="secondary" className="mb-1">
                 All services <Icon name="arrow" className="h-4 w-4" />
@@ -77,7 +76,6 @@ export default function HomePage() {
               title={<span id="how-heading">Care in three simple steps</span>}
               align="center"
               className="mx-auto"
-              revealEcg
             />
           </Reveal>
           <StepsIgnition
