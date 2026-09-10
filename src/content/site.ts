@@ -29,14 +29,18 @@ export type NavItem = {
   description?: string;
 };
 
-/** Primary navigation — PDR §5 approved sitemap. */
+/**
+ * Primary navigation — PDR §5 approved sitemap, thinned to what a
+ * visitor needs in order to decide (what we do, who we are, how to
+ * reach us). Health Resources, News and Careers moved to the footer's
+ * Learn column, where all three already lived, so nothing is orphaned.
+ * Telemedicine stays: /services covers the eight pillars and does not
+ * link to it, so the footer would be its only entry point.
+ */
 export const primaryNav: NavItem[] = [
-  { label: "About Us", href: "/about" },
   { label: "Services", href: "/services" },
   { label: "Telemedicine", href: "/telemedicine" },
-  { label: "Health Resources", href: "/resources" },
-  { label: "News", href: "/news" },
-  { label: "Careers", href: "/careers" },
+  { label: "About Us", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
 

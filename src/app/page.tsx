@@ -1,19 +1,15 @@
 import Link from "next/link";
 import { AuroraHero } from "@/components/AuroraHero";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { EcgDivider } from "@/components/EcgDivider";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
 import { ServicesOverview } from "@/components/ServicesOverview";
 import { StepsIgnition } from "@/components/StepsIgnition";
 import { Icon } from "@/components/icons";
-import { news } from "@/content/news";
 import { site } from "@/content/site";
 
 export default function HomePage() {
-  const highlights = news.slice(0, 3);
-
   return (
     <>
       {/* ── Hero (PDR §5: hero, booking CTA, trust indicators) ────── */}
@@ -114,118 +110,59 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Privacy trust band ─────────────────────────────────────── */}
-      <section className="starfield relative overflow-hidden bg-navy" aria-labelledby="trust-heading">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
+      {/* ── Closer: the promise, then the ask ──────────────────────
+          Was two sections plus a news band. A privacy-first brand's last
+          impression should be the privacy promise, and the buttons carry
+          the conversion without a second headline competing for it. The
+          four guarantees keep their explanatory text but lose their card
+          containers: elevation was not communicating hierarchy here. */}
+      <section className="starfield relative overflow-hidden bg-navy" aria-labelledby="closer-heading">
+        <div className="aurora-wash" aria-hidden="true" />
+        <div className="relative mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 sm:py-24">
           <Reveal>
-            <SectionHeading
-              title={<span id="trust-heading">Your health story belongs to you</span>}
-              lede="Handling health information is a responsibility we designed for from day one — not a policy we added later."
-              revealEcg
-            />
+            <EcgDivider className="mx-auto mb-8" reveal />
+            <h2 id="closer-heading" className="text-3xl sm:text-4xl">
+              Your health story belongs to you
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-silver">
+              Sharing, marketing and family access stay off until you switch them on. Designed
+              that way from day one, not added later.
+            </p>
           </Reveal>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+
+          <ul className="mt-12 grid gap-8 text-left sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: "shield" as const,
                 title: "Most-private defaults",
-                body: "Sharing, marketing, and family access are OFF until you switch them on. Withdrawing consent is one step.",
+                body: "Sharing and family access are off until you switch them on. Withdrawing consent is one step.",
               },
               {
                 icon: "eye" as const,
                 title: "A visible access log",
-                body: "See exactly who opened your record, when, and why — from your own portal.",
+                body: "See who opened your record, when, and why, from your own portal.",
               },
               {
                 icon: "download" as const,
-                title: "Take your data anywhere",
-                body: "Download your full record in a portable, machine-readable format. It's yours.",
+                title: "Yours to take",
+                body: "Download the whole record in a portable, machine-readable format.",
               },
               {
                 icon: "lock" as const,
                 title: "Secured end to end",
-                body: "Encryption in transit and at rest, MFA-protected staff access, and independent security testing.",
+                body: "Encrypted in transit and at rest, with independent security testing.",
               },
             ].map((t, i) => (
-              <Reveal key={t.title} index={i}>
-                <Card className="h-full">
-                  <Icon name={t.icon} className="h-7 w-7 text-cyan" />
-                  <h3 className="mt-4 text-lg">{t.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-silver">{t.body}</p>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-          <p className="mt-8 text-sm text-silver">
-            Read how we protect you in the{" "}
-            <Link href="/privacy-centre" className="text-cyan underline underline-offset-2 hover:text-blue">
-              Privacy Centre
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
-
-      {/* ── News highlights ────────────────────────────────────────── */}
-      <section className="bg-navy-soft" aria-labelledby="news-heading">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-          <Reveal>
-            <div className="flex flex-wrap items-end justify-between gap-6">
-              <SectionHeading
-                title={<span id="news-heading">What&rsquo;s happening at Aurora</span>}
-                revealEcg
-              />
-              <Button href="/news" variant="secondary" className="mb-1">
-                All news <Icon name="arrow" className="h-4 w-4" />
-              </Button>
-            </div>
-          </Reveal>
-          <ul className="mt-12 grid gap-5 lg:grid-cols-3">
-            {highlights.map((n, i) => (
-              <Reveal as="li" key={n.slug} index={i}>
-                <Link href={`/news/${n.slug}`} className="group block h-full rounded-2xl">
-                  <Card glow className="h-full">
-                    <div className="flex h-full flex-col">
-                      <div className="flex items-center gap-3 text-xs text-silver">
-                        <span className="rounded-full border border-cyan/40 px-2.5 py-1 font-semibold uppercase tracking-wider text-cyan">
-                          {n.kind}
-                        </span>
-                        <time dateTime={n.date}>
-                          {new Date(n.date).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </time>
-                      </div>
-                      <h3 className="mt-4 text-lg leading-snug text-starlight group-hover:text-cyan">
-                        {n.title}
-                      </h3>
-                      <p className="mt-3 flex-1 text-sm leading-relaxed text-silver">{n.summary}</p>
-                      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan">
-                        Read more <Icon name="arrow" className="h-4 w-4" />
-                      </span>
-                    </div>
-                  </Card>
-                </Link>
+              <Reveal as="li" key={t.title} index={i}>
+                <Icon name={t.icon} className="h-6 w-6 text-cyan" />
+                <h3 className="mt-3 text-base font-semibold text-starlight">{t.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-silver">{t.body}</p>
               </Reveal>
             ))}
           </ul>
-        </div>
-      </section>
 
-      {/* ── Final CTA band ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy">
-        <div className="aurora-wash" aria-hidden="true" />
-        <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-24">
           <Reveal>
-            <EcgDivider className="mx-auto mb-8" reveal />
-            <h2 className="text-3xl sm:text-4xl">Ready when you are.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-silver">
-              Book a clinic appointment, request a home visit, or explore the programmes coming
-              to your community.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-4">
+            <div className="mt-14 flex flex-wrap justify-center gap-4">
               <Button href="/book" size="lg">
                 Book an appointment
               </Button>
@@ -233,6 +170,16 @@ export default function HomePage() {
                 Talk to us
               </Button>
             </div>
+            <p className="mt-6 text-sm text-silver">
+              Read how we protect you in the{" "}
+              <Link
+                href="/privacy-centre"
+                className="text-cyan underline underline-offset-2 hover:text-blue"
+              >
+                Privacy Centre
+              </Link>
+              .
+            </p>
           </Reveal>
         </div>
       </section>
