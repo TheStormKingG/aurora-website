@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { site } from "../../src/content/site";
 
 /**
  * The footer must fit one phone screen without scrolling. It was 1228px
@@ -57,8 +58,10 @@ test("footer keeps its wayfinding, contact, trust and legal jobs", async ({ page
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   }
 
-  await expect(footer.getByRole("link", { name: "hello@hmaurora.health" })).toBeVisible();
-  await expect(footer.getByRole("link", { name: "privacy@hmaurora.health" })).toBeVisible();
+  // Read from the content module rather than hardcoding: these moved
+  // once already, and a test that pins them separately just drifts.
+  await expect(footer.getByRole("link", { name: site.contact.email })).toBeVisible();
+  await expect(footer.getByRole("link", { name: site.contact.phone })).toBeVisible();
   await expect(footer.getByText("No third-party trackers")).toBeVisible();
 });
 

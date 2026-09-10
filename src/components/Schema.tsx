@@ -13,6 +13,7 @@ export function OrganizationSchema({ extra }: { extra?: object[] }) {
     slogan: site.tagline,
     description: site.description,
     email: site.contact.email,
+    telephone: site.contact.phone,
     founder: {
       "@type": "Person",
       name: site.founder,

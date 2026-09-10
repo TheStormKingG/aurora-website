@@ -52,28 +52,29 @@ export default function ContactPage() {
           <div className="flex flex-col gap-6">
             <Card>
               <h2 className="text-xl">Direct lines</h2>
+              {/* Everything reaches one mailbox today, so listing it three
+                  times under three labels would read as broken rather
+                  than as three routes. Phone leads: for a healthcare
+                  service in Guyana it is the faster line. */}
               <ul className="mt-4 space-y-3 text-base text-silver">
                 <li className="flex items-center gap-3">
+                  <Icon name="phone" className="h-5 w-5 shrink-0 text-cyan" />
+                  <a href={`tel:${site.contact.phoneHref}`} className="hover:text-cyan">
+                    {site.contact.phone}
+                  </a>
+                </li>
+                <li className="flex items-center gap-3">
                   <Icon name="mail" className="h-5 w-5 shrink-0 text-cyan" />
-                  <a href={`mailto:${site.contact.email}`} className="hover:text-cyan">
+                  <a href={`mailto:${site.contact.email}`} className="break-all hover:text-cyan">
                     {site.contact.email}
                   </a>
                 </li>
-                <li className="flex items-center gap-3">
-                  <Icon name="shield" className="h-5 w-5 shrink-0 text-cyan" />
-                  <a href={`mailto:${site.contact.privacyEmail}`} className="hover:text-cyan">
-                    {site.contact.privacyEmail}
-                  </a>
-                  <span className="text-sm text-silver/70">(data protection)</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Icon name="users" className="h-5 w-5 shrink-0 text-cyan" />
-                  <a href={`mailto:${site.contact.careersEmail}`} className="hover:text-cyan">
-                    {site.contact.careersEmail}
-                  </a>
-                  <span className="text-sm text-silver/70">(careers)</span>
-                </li>
               </ul>
+              <p className="mt-4 text-sm leading-relaxed text-silver/80">
+                Data-protection and careers enquiries reach the same address — put
+                &ldquo;Data protection&rdquo; or &ldquo;Careers&rdquo; in the subject line and it
+                will be routed.
+              </p>
               <p className="mt-5 text-sm leading-relaxed text-silver/80">
                 For medical emergencies go to your nearest hospital emergency department —
                 email and this form are not monitored around the clock.

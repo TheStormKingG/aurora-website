@@ -50,6 +50,12 @@ export function Footer() {
                 </a>
               </span>
               <span className="inline-flex items-center gap-2">
+                <Icon name="phone" className="h-4 w-4 shrink-0 text-cyan" />
+                <a href={`tel:${site.contact.phoneHref}`} className="hover:text-cyan">
+                  {site.contact.phone}
+                </a>
+              </span>
+              <span className="inline-flex items-center gap-2">
                 <Icon name="globe" className="h-4 w-4 shrink-0 text-cyan" />
                 {site.contact.city}, {site.contact.country} — serving the {site.contact.region}
               </span>
@@ -99,16 +105,11 @@ export function Footer() {
           </span>
         </div>
 
-        <div className="mt-3 flex flex-col items-center gap-1 text-center text-xs text-silver/70 sm:mt-8 sm:flex-row sm:justify-between sm:gap-4 sm:border-t sm:border-line-dark sm:pt-8 sm:text-left">
+        <div className="mt-3 flex flex-col items-center gap-1 text-center text-xs text-silver/70 sm:mt-8 sm:border-t sm:border-line-dark sm:pt-8">
           <p>
             © {new Date().getFullYear()} {site.name}
           </p>
-          <p>
-            Data protection:{" "}
-            <a href={`mailto:${site.contact.privacyEmail}`} className="text-cyan hover:text-blue">
-              {site.contact.privacyEmail}
-            </a>
-          </p>
+
         </div>
       </div>
     </footer>

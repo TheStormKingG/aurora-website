@@ -13,9 +13,20 @@ export const site = {
   founder: "Hannah Munro",
   founderRole: "Founder & CEO",
   contact: {
-    email: "hello@hmaurora.health",
-    privacyEmail: "privacy@hmaurora.health",
-    careersEmail: "careers@hmaurora.health",
+    /**
+     * One real mailbox today. The three keys are kept separate because
+     * the site routes general, data-protection and careers enquiries to
+     * different names, and splitting them later should be a change here
+     * rather than a hunt through 22 call sites. Until then a placeholder
+     * that bounces is worse than a shared inbox that does not — the
+     * privacy notice in particular has to name an address that answers.
+     */
+    email: "hmaurorahealthsystems@gmail.com",
+    privacyEmail: "hmaurorahealthsystems@gmail.com",
+    careersEmail: "hmaurorahealthsystems@gmail.com",
+    /** Display form, and the digits-only form a tel: link needs. */
+    phone: "+592 693 2201",
+    phoneHref: "+5926932201",
     city: "Georgetown",
     country: "Guyana",
     region: "Caribbean",
