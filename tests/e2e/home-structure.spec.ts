@@ -16,14 +16,29 @@ const DROPPED_FROM_NAV = [
   { label: "Careers", href: "/careers/" },
 ];
 
-test("header carries at most six items", async ({ page }) => {
+test("header carries at most seven items", async ({ page }) => {
   await page.goto("/");
   const bar = page.locator("header").first();
   const links = bar.getByRole("navigation", { name: "Primary" }).locator("> ul > li");
-  await expect(links).toHaveCount(4);
+  // Five: the four destinations the thinning kept, plus Home. Home was
+  // added on request — the logo already links there, but that convention
+  // is learned rather than universal. Raised from four deliberately; the
+  // budget exists to catch creep, so anything past five needs the same
+  // kind of reason written down here.
+  await expect(links).toHaveCount(5);
   // Plus the two actions: one for returning patients, one for new ones.
   await expect(bar.getByRole("link", { name: "Patient Login" })).toBeVisible();
   await expect(bar.getByRole("link", { name: "Book Appointment" })).toBeVisible();
+});
+
+test("Home is listed once, not once per menu", async ({ page }) => {
+  // The mobile panel used to prepend its own Home entry. Now that Home
+  // lives in primaryNav, that prepend would render it twice.
+  await page.goto("/");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const panel = page.getByRole("navigation", { name: "Mobile" });
+  await expect(panel.getByRole("link", { name: "Home", exact: true })).toHaveCount(1);
 });
 
 test("home page is four content sections", async ({ page }) => {

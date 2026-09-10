@@ -47,8 +47,15 @@ export type NavItem = {
  * Learn column, where all three already lived, so nothing is orphaned.
  * Telemedicine stays: /services covers the eight pillars and does not
  * link to it, so the footer would be its only entry point.
+ *
+ * Home is listed explicitly even though the logo already links there.
+ * The logo-as-home convention is learned, not universal, and it is the
+ * one route with no visible label — so the mobile panel had always
+ * prepended its own Home entry. Carrying it here instead means the two
+ * menus render the same array and cannot drift apart.
  */
 export const primaryNav: NavItem[] = [
+  { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
   { label: "Telemedicine", href: "/telemedicine" },
   { label: "About Us", href: "/about" },
