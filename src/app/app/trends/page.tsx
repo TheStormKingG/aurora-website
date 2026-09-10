@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
+import { TrendsScreen } from "@/components/app/TrendsScreen";
 
-export const metadata: Metadata = { title: "Trends" };
+export const metadata: Metadata = { title: { absolute: "Trends | Aurora Health" } };
 
 export default function TrendsPage() {
-  return (
-    <div>
-      <h1 className="text-2xl">Trends</h1>
-      <p className="mt-2 text-silver">Charts arrive in the next update.</p>
-    </div>
-  );
+  return <TrendsScreen />;
 }
