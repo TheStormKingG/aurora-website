@@ -2,6 +2,16 @@ import { test, expect, type Page } from "@playwright/test";
 import { injectAxe, checkA11y } from "axe-playwright";
 import { createClient } from "@supabase/supabase-js";
 import { loadEnvLocal } from "./env";
+// Imported, never hardcoded: readConsentCookie() rejects a record whose
+// version is not the current NOTICE_VERSION, so a hardcoded copy would
+// silently stop suppressing the banner the next time the notice is
+// revised — and bring back the flake below with it.
+import {
+  CONSENT_COOKIE,
+  makeConsentRecord,
+  mostPrivateScope,
+  serializeConsent,
+} from "../../src/lib/consent";
 
 loadEnvLocal();
 const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,26 +21,70 @@ test.use({ viewport: { width: 375, height: 812 } });
 
 const password = "Test-passw0rd!";
 let email = "";
-let userId = "";
+const createdUserIds: string[] = [];
 const admin = () => createClient(url!, serviceKey!, { auth: { persistSession: false } });
 
-test.beforeAll(async () => {
-  email = `e2e-health+${Date.now()}@example.com`;
+/** A brand-new confirmed patient. Every id is cleaned up in afterAll. */
+async function createPatient(): Promise<string> {
+  const address = `e2e-health+${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
   const { data, error } = await admin().auth.admin.createUser({
-    email, password, email_confirm: true,
+    email: address, password, email_confirm: true,
     user_metadata: { full_name: "E2E Patient", dob: "1990-01-01" },
   });
   if (error) throw error;
-  userId = data.user.id;
+  createdUserIds.push(data.user.id);
+  return address;
+}
+
+test.beforeAll(async () => {
+  email = await createPatient();
 });
 
 test.afterAll(async () => {
-  if (userId) await admin().auth.admin.deleteUser(userId); // cascades through health.patients
+  // Deleting the auth user cascades through health.patients.
+  for (const id of createdUserIds) await admin().auth.admin.deleteUser(id);
+  createdUserIds.length = 0;
 });
 
-async function signIn(page: Page) {
+/**
+ * THE FLAKE THIS FILE HAD, and why the cookie is seeded here.
+ *
+ * ConsentBanner is `fixed inset-x-0 bottom-0 z-[60]`. This is the only
+ * spec that runs at 375x812, and at that height the banner covers the
+ * centre of the Sign in button: document.elementFromPoint() on the
+ * button returns the banner div, not the button. Playwright resolves the
+ * button, scrolls to it, then hit-tests before clicking, finds the
+ * banner, and retries until the test times out — a 30s hang whose log
+ * ends at "done scrolling" and names no cause.
+ *
+ * It was intermittent because the banner paints after hydration: a click
+ * that lands first succeeds, one that lands after it hangs. That race is
+ * why a different test failed on each run, which reads like shared
+ * database state and is not. The patient is created fresh per run and
+ * deleted afterwards, so no state survives a run at all.
+ *
+ * Seeding the choice is what a returning visitor has anyway, and no spec
+ * asserts on the banner, so nothing is lost by not rendering it.
+ */
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([
+    {
+      name: CONSENT_COOKIE,
+      value: serializeConsent(makeConsentRecord(mostPrivateScope)),
+      url: baseURL ?? "http://localhost:3000",
+    },
+  ]);
+});
+
+async function signIn(page: Page, as: string = email) {
   await page.goto("/patient-login/");
-  await page.getByLabel("Email").fill(email);
+  // If the cookie ever stops suppressing the banner, fail here saying so
+  // rather than 30s later inside an unexplained click timeout.
+  await expect(
+    page.getByRole("button", { name: "Accept all" }),
+    "cookie banner must be dismissed — it covers Sign in at this viewport"
+  ).toHaveCount(0);
+  await page.getByLabel("Email").fill(as);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/account/patient/");
@@ -65,13 +119,31 @@ async function signInConsented(page: Page) {
 }
 
 test("consent gate, then log a blood pressure reading", async ({ page }) => {
-  await signIn(page);
+  // Its own patient, not the shared one. This is the only test whose
+  // precondition is "has NOT consented", and previously it held that by
+  // being declared first and consenting the shared patient on the way
+  // through — which every later test then silently depended on. Owning a
+  // fresh patient makes it independent of order, and survivable on a
+  // retry (a retry of the old test found no gate and failed).
+  await signIn(page, await createPatient());
   await page.goto("/app/");
 
   // Consent gate. The shell only paints this form pre-consent (AppShell
-  // renders ShellLoading whenever consented === onConsent) — this patient
-  // is fresh, so it's the first thing after sign-in.
-  await expect(page.getByRole("heading", { name: "Before you start" })).toBeVisible();
+  // renders ShellLoading whenever consented === onConsent), and this
+  // patient was created moments ago.
+  //
+  // Two steps, not one. Waiting for the gate alone reports "the shell is
+  // still deciding" (a slow machine) and "this patient was somehow
+  // already consented" (a real bug) as the same bare timeout — it did
+  // exactly that on a run where the browser stalled. Resolve the shell
+  // first, then assert which state it settled into.
+  const gate = page.getByRole("heading", { name: "Before you start" });
+  const today = page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ });
+  await expect(
+    gate.or(today).first(),
+    "app shell never resolved to either the consent gate or Today"
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(gate, "a patient created moments ago must meet the consent gate").toBeVisible();
   await injectAxe(page);
   await checkA11y(page, undefined, { detailedReport: false });
   await page.getByRole("button", { name: /I agree/ }).click();
@@ -120,12 +192,11 @@ test("consent gate, then log a blood pressure reading", async ({ page }) => {
   await expect(card).toContainText("High (stage 1)");
 });
 
-// Runs after the consent test in the same worker — this file isn't
-// fullyParallel, so tests run in order and reuse the seeded patient's
-// now-granted consent; a consented patient goes straight to Today.
+// Establishes its own consent rather than inheriting it: the gate test
+// now consents a patient of its own, so nothing else grants it for the
+// shared one. signInConsented leaves the page on Today either way.
 test("keyboard: Escape closes the sheet and focus returns to the opener", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/app/");
+  await signInConsented(page);
   const opener = page.getByRole("button", { name: "Log a reading" });
   await opener.focus();
   await page.keyboard.press("Enter");
@@ -207,9 +278,9 @@ test("Trends: log a reading, then see it charted and listed", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Trends", level: 1 })).toBeVisible();
   // "Listed" means a row in the Entries table. Scoped to cells because a
   // looser match also hits the chart's <title> (no box, never "visible")
-  // and the table's own sr-only caption; .first() because the earlier
-  // consent test logs the same reading, so the row count depends on which
-  // tests ran.
+  // and the table's own sr-only caption; .first() because this test can
+  // run more than once against the shared patient within a session and
+  // each run adds a row.
   await expect(
     page.getByRole("cell").filter({ hasText: "128/82 mmHg" }).first()
   ).toBeVisible();
