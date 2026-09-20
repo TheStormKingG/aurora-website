@@ -42,3 +42,53 @@ Next.js App Router + TypeScript (strict), Tailwind, Payload CMS, PostgreSQL, Pla
 - TDD where practical. Run `npm run verify` (lint + typecheck + test + axe) before claiming done.
 - Conventional commits. Small PRs, one milestone step each.
 - Never mark a milestone complete until its "Done when" checks in docs/PLAN.md pass.
+
+### Ship through a pull request — never straight to main
+
+Every change goes branch → PR → review → merge. This is not ceremony: it is the only
+point at which anything reads the diff before it reaches the live site. Until
+2026-09-20 this repo had **zero** pull requests and every change was merged locally and
+pushed, which is how a photograph with no faces in it, and the same crop defect on a
+second page, both reached production unread.
+
+```
+git switch -c feat/thing
+npm run verify          # lint + typecheck + unit + build
+npm run review          # the same AI reviewer CI runs, before you push
+git push -u origin feat/thing && gh pr create
+```
+
+`npm run review` is optional locally and automatic on the PR. Running it first is
+cheaper than a CI round-trip and it is the same brief either way.
+
+### What the reviewer is for, and what it is not
+
+`scripts/ai-review.mjs` reviews **architecture, not syntax** — the brief tells it to
+ignore anything a linter decides, and it weights the defect classes that have actually
+shipped here (silent success, guards that cannot fail, empty results read as findings,
+basePath, responsive crops, consent and RLS). Every finding must carry a concrete
+failure scenario or it is not reported; a reviewer that cries wolf gets muted, and then
+it protects nothing.
+
+- **Critical blocks the merge** — silent data loss, a consent/auth/RLS bypass, patient
+  data escaping, an unconfirmed destructive action, injection, or a guard that cannot fail.
+- **Warnings are informational** — read them, act if they are right.
+- **You make the call.** The reviewer is a second pair of eyes, not an authority. When
+  it is wrong, override it and say so in the PR; when a critical finding is a false
+  positive, that is worth a line in the PR so the brief can be tightened later.
+
+It does not replace `npm run verify`, the e2e suite, or looking at the rendered page.
+It reads a diff — it cannot see what the site looks like, and it never will.
+
+### Running gates
+
+| Gate | Runs | Blocks on |
+|------|------|-----------|
+| `npm run verify` | locally, by hand | lint, types, unit tests, build |
+| AI review | every PR, automatically | critical findings only |
+| Deploy | push to `main` | build failure |
+
+The AI review job fails loudly when the review could not run at all — a missing key, a
+rate limit, an unparseable response. That is deliberate: a reviewer that silently does
+not run is indistinguishable from one that found nothing, and this repo has been bitten
+by exactly that shape of failure before.

@@ -11,7 +11,8 @@
     "test:unit": "vitest run",
     "test:rls": "node --env-file=.env.local tests/rls/profiles.mjs && node --env-file=.env.local tests/rls/health.mjs",
     "test:e2e": "playwright test",
-    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run build"
+    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run build",
+    "review": "node scripts/ai-review.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
@@ -21,6 +22,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
