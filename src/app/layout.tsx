@@ -48,6 +48,48 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${montserrat.variable} ${inter.variable}`}>
+      <head>
+        {/*
+          Content Security Policy, delivered by meta because this site is a
+          static export on GitHub Pages — there is no middleware and no way
+          to set response headers, so PDR §10's "strict CSP via middleware"
+          cannot be implemented as written. This is the achievable form of
+          it, and it is worth being precise about what it does and does not
+          buy:
+
+          * connect-src is the load-bearing line. The patient session lives
+            in localStorage (supabase-js with persistSession), so a script
+            injection could read it — but it could only *send* it somewhere
+            this list allows. Restricting the destinations removes the
+            second half of a token-theft chain even when the first half
+            succeeds.
+          * script-src keeps 'unsafe-inline' because Next injects a
+            bootstrap script and a static export cannot issue nonces. So
+            this is NOT an anti-XSS control; treat input handling and
+            React's own escaping as the defence there, not this header.
+          * frame-ancestors is absent because it is ignored in a meta tag
+            and GitHub Pages cannot send X-Frame-Options. Clickjacking is
+            unmitigated on this host — moving to a CDN that can set headers
+            is the only fix, and it is worth doing before any staff EHR
+            surface ships.
+        */}
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content={[
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "form-action 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self'",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+            "frame-src 'none'",
+            "upgrade-insecure-requests",
+          ].join("; ")}
+        />
+      </head>
       <body className="flex min-h-screen flex-col">
         {/* Scroll-reveal content must never be lost without JS */}
         <noscript>
